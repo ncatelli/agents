@@ -1,6 +1,7 @@
 mod ast;
 
 use ast::Expression;
+use wasm_bindgen::prelude::*;
 
 pub trait Evaluate<T> {
     fn evaluate(self, state: T) -> T;
@@ -338,4 +339,9 @@ pub fn tick_mut(_board: &mut Board) {}
 // call from js
 pub fn get_board_state(board: Board) -> Vec<u32> {
     board.cells.into_iter().map(|c| c.color).collect()
+}
+
+#[wasm_bindgen]
+pub fn run() -> u8 {
+    8
 }
