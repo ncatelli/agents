@@ -23,7 +23,7 @@ pub enum Command {
     SetVariable(String, Expression),
     Face(Direction),
     Turn(i32),
-    Move(i32),
+    Move(u32),
     Goto(u32),
     JumpTrue(u32, Expression),
 }
