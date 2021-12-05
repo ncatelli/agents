@@ -81,6 +81,16 @@ impl AgentState {
     }
 }
 
+impl<M> Evaluate<AgentState> for M
+where
+    AgentState: EvaluateMut<M>,
+{
+    fn evaluate(self, mut state: AgentState) -> AgentState {
+        state.evaluate_mut(self);
+        state
+    }
+}
+
 impl EvaluateMut<ast::Command> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
