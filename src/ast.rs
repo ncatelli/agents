@@ -18,7 +18,7 @@ pub(crate) enum CommandOrLabel {
     Command(Command),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Command {
     SetVariable(String, Expression),
     Face(Direction),
@@ -28,13 +28,13 @@ pub enum Command {
     JumpTrue(u32, Expression),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct SetVariable {
     var: String,
     value: Expression,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Expression {
     Literal(Primitive),
     Equals(Box<Expression>, Box<Expression>),
