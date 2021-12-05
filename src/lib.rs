@@ -297,6 +297,7 @@ impl EvaluateMut<ast::Expression> for AgentState {
 pub struct Board {
     cells: Vec<Cell>,
     width: u32,
+    #[allow(dead_code)]
     height: u32,
     agents: Vec<AgentState>,
 }
