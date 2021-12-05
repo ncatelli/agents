@@ -30,7 +30,6 @@ impl Agent {
     }
 }
 
-
 #[derive(Debug, Clone, PartialEq)]
 
 pub enum Command {
@@ -40,12 +39,6 @@ pub enum Command {
     Move(u32),
     Goto(u32),
     JumpTrue(u32, Expression),
-}
-
-#[derive(Clone, Debug)]
-pub struct SetVariable {
-    var: String,
-    value: Expression,
 }
 
 #[derive(Debug, Clone, PartialEq)]

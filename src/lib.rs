@@ -4,9 +4,9 @@ mod parser;
 #[macro_use]
 extern crate lazy_static;
 
-use ast::{Expression, Command};
-use wasm_bindgen::prelude::*;
+use ast::{Command, Expression};
 use std::sync::Mutex;
+use wasm_bindgen::prelude::*;
 
 pub trait Evaluate<T> {
     fn evaluate(self, state: T) -> T;
@@ -56,8 +56,7 @@ pub struct AgentState {
     vars: HashMap<String, ast::Primitive>,
     commands: Vec<ast::Command>,
     pc: u32,
-    x: u32,
-    y: u32,
+    coords: Coordinates,
     direction: ast::Direction,
     color: u32,
 }
@@ -75,8 +74,7 @@ impl AgentState {
             vars: HashMap::new(),
             commands,
             pc,
-            x,
-            y,
+            coords: Coordinates(x, y),
             direction,
             color,
         }
@@ -91,128 +89,162 @@ impl EvaluateMut<ast::Command> for AgentState {
         match operation {
             ast::Command::SetVariable(id, expr) => {
                 let value = self.evaluate_mut(expr)?;
-                self.vars.insert(id, value);
+
+                match id.as_str() {
+                    "x" => match value {
+                        Primitive::Integer(i) if i > 0 => {
+                            self.coords = Coordinates(i as u32, self.coords.y())
+                        }
+                        other => return Err(format!("invalid type [{:?}] for x", other)),
+                    },
+                    "y" => match value {
+                        Primitive::Integer(i) if i > 0 => {
+                            self.coords = Coordinates(self.coords.x(), i as u32)
+                        }
+                        other => return Err(format!("invalid type [{:?}] for y", other)),
+                    },
+                    "color" => match value {
+                        Primitive::Integer(i) if i > 0 => self.color = i as u32,
+                        other => return Err(format!("invalid type [{:?}] for color", other)),
+                    },
+                    _ => {
+                        self.vars.insert(id, value);
+                    }
+                };
+                self.pc += 1;
                 Ok(vec![])
             }
             ast::Command::Face(dir) => {
                 self.direction = dir;
+                self.pc += 1;
                 Ok(vec![])
             }
             ast::Command::Turn(rotations) => {
                 let original_direction = self.direction as i32;
                 self.direction = ast::Direction::from(original_direction + rotations);
+                self.pc += 1;
                 Ok(vec![])
             }
-            ast::Command::Move(steps) => match self.direction {
-                ast::Direction::N => {
-                    let touched_cells: Vec<Coordinates> = (0..=steps)
-                        .into_iter()
-                        .map(|offset| Coordinates(self.x, self.y + offset))
-                        .collect();
-                    let end = touched_cells
-                        .last()
-                        .copied()
-                        .unwrap_or(Coordinates(self.x, self.y));
+            ast::Command::Move(steps) => {
+                let res = match self.direction {
+                    ast::Direction::N => {
+                        let touched_cells: Vec<Coordinates> = (0..=steps)
+                            .into_iter()
+                            .map(|offset| Coordinates(self.coords.x(), self.coords.y() + offset))
+                            .collect();
+                        let end = touched_cells
+                            .last()
+                            .copied()
+                            .unwrap_or_else(|| Coordinates(self.coords.x(), self.coords.y()));
 
-                    self.y = end.y();
-                    Ok(touched_cells)
-                }
-                ast::Direction::S => {
-                    let touched_cells: Vec<Coordinates> = (0..=steps)
-                        .into_iter()
-                        .map(|offset| Coordinates(self.x, self.y - offset))
-                        .collect();
-                    let end = touched_cells
-                        .last()
-                        .copied()
-                        .unwrap_or(Coordinates(self.x, self.y));
+                        self.coords = Coordinates(end.x(), end.y());
+                        Ok(touched_cells)
+                    }
+                    ast::Direction::S => {
+                        let touched_cells: Vec<Coordinates> = (0..=steps)
+                            .into_iter()
+                            .map(|offset| Coordinates(self.coords.x(), self.coords.y() - offset))
+                            .collect();
+                        let end = touched_cells
+                            .last()
+                            .copied()
+                            .unwrap_or_else(|| Coordinates(self.coords.x(), self.coords.y()));
 
-                    self.y = end.y();
-                    Ok(touched_cells)
-                }
-                ast::Direction::E => {
-                    let touched_cells: Vec<Coordinates> = (0..=steps)
-                        .into_iter()
-                        .map(|offset| Coordinates(self.x + offset, self.y))
-                        .collect();
-                    let end = touched_cells
-                        .last()
-                        .copied()
-                        .unwrap_or(Coordinates(self.x, self.y));
+                        self.coords = Coordinates(end.x(), end.y());
+                        Ok(touched_cells)
+                    }
+                    ast::Direction::E => {
+                        let touched_cells: Vec<Coordinates> = (0..=steps)
+                            .into_iter()
+                            .map(|offset| Coordinates(self.coords.x() + offset, self.coords.y()))
+                            .collect();
+                        let end = touched_cells
+                            .last()
+                            .copied()
+                            .unwrap_or_else(|| Coordinates(self.coords.x(), self.coords.y()));
 
-                    self.x = end.x();
-                    Ok(touched_cells)
-                }
-                ast::Direction::W => {
-                    let touched_cells: Vec<Coordinates> = (0..=steps)
-                        .into_iter()
-                        .map(|offset| Coordinates(self.x - offset, self.y))
-                        .collect();
-                    let end = touched_cells
-                        .last()
-                        .copied()
-                        .unwrap_or(Coordinates(self.x, self.y));
+                        self.coords = Coordinates(end.x(), end.y());
+                        Ok(touched_cells)
+                    }
+                    ast::Direction::W => {
+                        let touched_cells: Vec<Coordinates> = (0..=steps)
+                            .into_iter()
+                            .map(|offset| Coordinates(self.coords.x() - offset, self.coords.y()))
+                            .collect();
+                        let end = touched_cells
+                            .last()
+                            .copied()
+                            .unwrap_or_else(|| Coordinates(self.coords.x(), self.coords.y()));
 
-                    self.x = end.x();
-                    Ok(touched_cells)
-                }
-                ast::Direction::NE => {
-                    let touched_cells: Vec<Coordinates> = (0..=steps)
-                        .into_iter()
-                        .map(|offset| Coordinates(self.x + offset, self.y + offset))
-                        .collect();
-                    let end = touched_cells
-                        .last()
-                        .copied()
-                        .unwrap_or(Coordinates(self.x, self.y));
+                        self.coords = Coordinates(end.x(), end.y());
+                        Ok(touched_cells)
+                    }
+                    ast::Direction::NE => {
+                        let touched_cells: Vec<Coordinates> = (0..=steps)
+                            .into_iter()
+                            .map(|offset| {
+                                Coordinates(self.coords.x() + offset, self.coords.y() + offset)
+                            })
+                            .collect();
+                        let end = touched_cells
+                            .last()
+                            .copied()
+                            .unwrap_or_else(|| Coordinates(self.coords.x(), self.coords.y()));
 
-                    self.x = end.x();
-                    self.y = end.y();
-                    Ok(touched_cells)
-                }
-                ast::Direction::SE => {
-                    let touched_cells: Vec<Coordinates> = (0..=steps)
-                        .into_iter()
-                        .map(|offset| Coordinates(self.x + offset, self.y - offset))
-                        .collect();
-                    let end = touched_cells
-                        .last()
-                        .copied()
-                        .unwrap_or(Coordinates(self.x, self.y));
+                        self.coords = Coordinates(end.x(), end.y());
+                        Ok(touched_cells)
+                    }
+                    ast::Direction::SE => {
+                        let touched_cells: Vec<Coordinates> = (0..=steps)
+                            .into_iter()
+                            .map(|offset| {
+                                Coordinates(self.coords.x() + offset, self.coords.y() - offset)
+                            })
+                            .collect();
+                        let end = touched_cells
+                            .last()
+                            .copied()
+                            .unwrap_or_else(|| Coordinates(self.coords.x(), self.coords.y()));
 
-                    self.x = end.x();
-                    self.y = end.y();
-                    Ok(touched_cells)
-                }
-                ast::Direction::SW => {
-                    let touched_cells: Vec<Coordinates> = (0..=steps)
-                        .into_iter()
-                        .map(|offset| Coordinates(self.x - offset, self.y - offset))
-                        .collect();
-                    let end = touched_cells
-                        .last()
-                        .copied()
-                        .unwrap_or(Coordinates(self.x, self.y));
+                        self.coords = Coordinates(end.x(), end.y());
+                        Ok(touched_cells)
+                    }
+                    ast::Direction::SW => {
+                        let touched_cells: Vec<Coordinates> = (0..=steps)
+                            .into_iter()
+                            .map(|offset| {
+                                Coordinates(self.coords.x() - offset, self.coords.y() - offset)
+                            })
+                            .collect();
+                        let end = touched_cells
+                            .last()
+                            .copied()
+                            .unwrap_or_else(|| Coordinates(self.coords.x(), self.coords.y()));
 
-                    self.x = end.x();
-                    self.y = end.y();
-                    Ok(touched_cells)
-                }
-                ast::Direction::NW => {
-                    let touched_cells: Vec<Coordinates> = (0..=steps)
-                        .into_iter()
-                        .map(|offset| Coordinates(self.x - offset, self.y + offset))
-                        .collect();
-                    let end = touched_cells
-                        .last()
-                        .copied()
-                        .unwrap_or(Coordinates(self.x, self.y));
+                        self.coords = Coordinates(end.x(), end.y());
+                        Ok(touched_cells)
+                    }
+                    ast::Direction::NW => {
+                        let touched_cells: Vec<Coordinates> = (0..=steps)
+                            .into_iter()
+                            .map(|offset| {
+                                Coordinates(self.coords.x() - offset, self.coords.y() + offset)
+                            })
+                            .collect();
+                        let end = touched_cells
+                            .last()
+                            .copied()
+                            .unwrap_or_else(|| Coordinates(self.coords.x(), self.coords.y()));
 
-                    self.x = end.x();
-                    self.y = end.y();
-                    Ok(touched_cells)
-                }
-            },
+                        self.coords = Coordinates(end.x(), end.y());
+                        Ok(touched_cells)
+                    }
+                };
+
+                self.pc += 1;
+                res
+            }
+
             ast::Command::Goto(command) => {
                 if (command as usize) < self.commands.len() {
                     self.pc = command;
@@ -278,7 +310,7 @@ impl EvaluateMut<ast::Expression> for AgentState {
                 .vars
                 .get(&key)
                 .copied()
-                .ok_or_else(|| format!("key [{}] undefined.", &key)),
+                .ok_or_else(|| format!("key [{}] undefined", &key)),
             Expression::Equals(lhs, rhs) => {
                 let l = self.evaluate_mut(*lhs)?;
                 let r = self.evaluate_mut(*rhs)?;
@@ -295,7 +327,6 @@ impl EvaluateMut<ast::Expression> for AgentState {
 pub struct Board {
     cells: Vec<Cell>,
     width: u32,
-    height: u32,
     agents: Vec<AgentState>,
 }
 
@@ -305,7 +336,6 @@ impl Board {
             agents: vec![],
             cells: vec![Cell::default(); (width * height) as usize],
             width,
-            height,
         }
     }
 
@@ -328,7 +358,11 @@ impl Board {
 pub fn tick_agent(agent_state: &mut AgentState) -> Vec<Coordinates> {
     // TODO: implement interpreter here
     // TODO: change pc here
-    let command = agent_state.commands.get(agent_state.pc as usize).cloned().unwrap();
+    let command = agent_state
+        .commands
+        .get(agent_state.pc as usize)
+        .cloned()
+        .unwrap();
     agent_state.evaluate_mut(command).unwrap()
 }
 
@@ -349,12 +383,23 @@ pub fn tick_world(board: &mut Board) {
 lazy_static! {
     static ref BOARD: Mutex<Board> = {
         let mut board = Board::new(50, 50);
-        let commands = vec![
-            Command::Move(2),
-            Command::Goto(0)
-        ];
-        board.agents.push(AgentState::new(commands.clone(), 0, 4, 4, ast::Direction::N, 0xff0000));
-        board.agents.push(AgentState::new(commands.clone(), 0, 6, 4, ast::Direction::E, 0x0000ff));
+        let commands = vec![Command::Move(2), Command::Goto(0)];
+        board.agents.push(AgentState::new(
+            commands.clone(),
+            0,
+            4,
+            4,
+            ast::Direction::N,
+            0xff0000,
+        ));
+        board.agents.push(AgentState::new(
+            commands,
+            0,
+            6,
+            4,
+            ast::Direction::E,
+            0x0000ff,
+        ));
         Mutex::new(board)
     };
 }
