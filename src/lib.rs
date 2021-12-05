@@ -8,6 +8,9 @@ use ast::{Command, Expression};
 use std::sync::Mutex;
 use wasm_bindgen::prelude::*;
 
+#[cfg(test)]
+mod tests;
+
 /// Provides traits for evaluating a type onto a state, returning the modified
 /// state.
 pub trait Evaluate<T> {
@@ -192,14 +195,14 @@ impl EvaluateMut<ast::MoveCmd> for AgentState {
 /// Updates coordinates to represent a move of n steps in a given direction
 fn move_in_direction(steps: u32, direction: ast::Direction, origin: Coordinates) -> Coordinates {
     match direction {
-        ast::Direction::N => Coordinates(origin.x(), origin.y() + steps),
-        ast::Direction::NE => Coordinates(origin.x() + steps, origin.y() + steps),
+        ast::Direction::N => Coordinates(origin.x(), origin.y() - steps),
+        ast::Direction::NE => Coordinates(origin.x() + steps, origin.y() - steps),
+        ast::Direction::NW => Coordinates(origin.x() - steps, origin.y() - steps),
         ast::Direction::E => Coordinates(origin.x() + steps, origin.y()),
         ast::Direction::SE => Coordinates(origin.x() - steps, origin.y() + steps),
-        ast::Direction::S => Coordinates(origin.x(), origin.y() - steps),
-        ast::Direction::SW => Coordinates(origin.x() - steps, origin.y() - steps),
+        ast::Direction::S => Coordinates(origin.x(), origin.y() + steps),
+        ast::Direction::SW => Coordinates(origin.x() - steps, origin.y() + steps),
         ast::Direction::W => Coordinates(origin.x() - steps, origin.y()),
-        ast::Direction::NW => Coordinates(origin.x() - steps, origin.y() + steps),
     }
 }
 
