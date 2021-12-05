@@ -31,7 +31,6 @@ impl Agent {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-
 pub enum Command {
     SetVariable(String, Expression),
     Face(Direction),
@@ -42,7 +41,15 @@ pub enum Command {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct SetVariableCmd(pub String, pub Expression);
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct FaceCmd(pub Direction);
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TurnCmd(pub i32);
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     Literal(Primitive),
     Equals(Box<Expression>, Box<Expression>),

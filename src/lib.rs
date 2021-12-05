@@ -87,44 +87,9 @@ impl EvaluateMut<ast::Command> for AgentState {
     fn evaluate_mut(&mut self, operation: ast::Command) -> Self::Output {
         use ast::Primitive;
         match operation {
-            ast::Command::SetVariable(id, expr) => {
-                let value = self.evaluate_mut(expr)?;
-
-                match id.as_str() {
-                    "x" => match value {
-                        Primitive::Integer(i) if i > 0 => {
-                            self.coords = Coordinates(i as u32, self.coords.y())
-                        }
-                        other => return Err(format!("invalid type [{:?}] for x", other)),
-                    },
-                    "y" => match value {
-                        Primitive::Integer(i) if i > 0 => {
-                            self.coords = Coordinates(self.coords.x(), i as u32)
-                        }
-                        other => return Err(format!("invalid type [{:?}] for y", other)),
-                    },
-                    "color" => match value {
-                        Primitive::Integer(i) if i > 0 => self.color = i as u32,
-                        other => return Err(format!("invalid type [{:?}] for color", other)),
-                    },
-                    _ => {
-                        self.vars.insert(id, value);
-                    }
-                };
-                self.pc += 1;
-                Ok(vec![])
-            }
-            ast::Command::Face(dir) => {
-                self.direction = dir;
-                self.pc += 1;
-                Ok(vec![])
-            }
-            ast::Command::Turn(rotations) => {
-                let original_direction = self.direction as i32;
-                self.direction = ast::Direction::from(original_direction + rotations);
-                self.pc += 1;
-                Ok(vec![])
-            }
+            ast::Command::SetVariable(id, expr) => self.evaluate_mut(ast::SetVariableCmd(id, expr)),
+            ast::Command::Face(dir) => self.evaluate_mut(ast::FaceCmd(dir)),
+            ast::Command::Turn(rotations) => self.evaluate_mut(ast::TurnCmd(rotations)),
             ast::Command::Move(steps) => {
                 let res = match self.direction {
                     ast::Direction::N => {
@@ -267,6 +232,66 @@ impl EvaluateMut<ast::Command> for AgentState {
                 }
             }
         }
+    }
+}
+
+impl EvaluateMut<ast::SetVariableCmd> for AgentState {
+    type Output = Result<Vec<Coordinates>, String>;
+
+    fn evaluate_mut(&mut self, operation: ast::SetVariableCmd) -> Self::Output {
+        use ast::Primitive;
+
+        let ast::SetVariableCmd(id, expr) = operation;
+        let value = self.evaluate_mut(expr)?;
+
+        match id.as_str() {
+            "x" => match value {
+                Primitive::Integer(i) if i > 0 => {
+                    self.coords = Coordinates(i as u32, self.coords.y())
+                }
+                other => return Err(format!("invalid type [{:?}] for x", other)),
+            },
+            "y" => match value {
+                Primitive::Integer(i) if i > 0 => {
+                    self.coords = Coordinates(self.coords.x(), i as u32)
+                }
+                other => return Err(format!("invalid type [{:?}] for y", other)),
+            },
+            "color" => match value {
+                Primitive::Integer(i) if i > 0 => self.color = i as u32,
+                other => return Err(format!("invalid type [{:?}] for color", other)),
+            },
+            _ => {
+                self.vars.insert(id, value);
+            }
+        };
+        self.pc += 1;
+        Ok(vec![])
+    }
+}
+
+impl EvaluateMut<ast::FaceCmd> for AgentState {
+    type Output = Result<Vec<Coordinates>, String>;
+
+    fn evaluate_mut(&mut self, operation: ast::FaceCmd) -> Self::Output {
+        let ast::FaceCmd(new_direction) = operation;
+
+        self.direction = new_direction;
+        self.pc += 1;
+        Ok(vec![])
+    }
+}
+
+impl EvaluateMut<ast::TurnCmd> for AgentState {
+    type Output = Result<Vec<Coordinates>, String>;
+
+    fn evaluate_mut(&mut self, operation: ast::TurnCmd) -> Self::Output {
+        let ast::TurnCmd(rotations) = operation;
+
+        let original_direction = self.direction as i32;
+        self.direction = ast::Direction::from(original_direction + rotations);
+        self.pc += 1;
+        Ok(vec![])
     }
 }
 
