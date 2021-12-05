@@ -7,13 +7,13 @@ use parcel::prelude::v1::*;
 use crate::ast;
 
 #[derive(Debug)]
-pub enum CommandOrLabel {
+enum CommandOrLabel {
     Label(String),
     Command(ParsedCommand),
 }
 
 #[derive(Debug, PartialEq)]
-pub enum ParsedCommand {
+enum ParsedCommand {
     SetVariable(String, ast::Expression),
     Face(ast::Direction),
     Turn(i32),
