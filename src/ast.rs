@@ -50,6 +50,15 @@ pub struct FaceCmd(pub Direction);
 pub struct TurnCmd(pub i32);
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct MoveCmd(pub u32);
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GotoCmd(pub u32);
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct JumpTrueCmd(pub u32, pub Expression);
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     Literal(Primitive),
     Equals(Box<Expression>, Box<Expression>),
