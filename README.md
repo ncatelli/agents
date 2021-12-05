@@ -1,5 +1,7 @@
 # Agents
 
+Some rendering code copied from https://github.com/rustwasm/wasm_game_of_life/.
+
 ## Examples
 
 ```
