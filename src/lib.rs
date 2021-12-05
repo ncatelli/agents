@@ -1,4 +1,5 @@
 mod ast;
+mod parser;
 
 #[macro_use]
 extern crate lazy_static;

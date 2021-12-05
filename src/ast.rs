@@ -1,8 +1,25 @@
+#[derive(Debug)]
 pub struct Program {
     agents: Vec<Agent>,
 }
 
-#[derive(Debug)]
+impl Program {
+    pub fn new(agents: Vec<Agent>) -> Self {
+        Self { agents }
+    }
+
+    pub fn agents(&self) -> &[Agent] {
+        &self.agents
+    }
+}
+
+impl From<Program> for Vec<Agent> {
+    fn from(program: Program) -> Self {
+        program.agents
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct Agent {
     commands: Vec<Command>,
 }
@@ -13,12 +30,9 @@ impl Agent {
     }
 }
 
-pub(crate) enum CommandOrLabel {
-    Label(String),
-    Command(Command),
-}
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, PartialEq)]
+
 pub enum Command {
     SetVariable(String, Expression),
     Face(Direction),
@@ -34,7 +48,8 @@ pub struct SetVariable {
     value: Expression,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, PartialEq)]
+
 pub enum Expression {
     Literal(Primitive),
     Equals(Box<Expression>, Box<Expression>),
