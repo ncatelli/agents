@@ -8,14 +8,17 @@ use ast::{Command, Expression};
 use std::sync::Mutex;
 use wasm_bindgen::prelude::*;
 
+/// Provides traits for evaluating a type onto a state, returning the modified
+/// state.
 pub trait Evaluate<T> {
     fn evaluate(self, state: T) -> T;
 }
 
-pub trait EvaluateMut<T> {
+/// Provides traits for evaluating a given operation onto a mutable State type.
+pub trait EvaluateMut<State> {
     type Output;
 
-    fn evaluate_mut(&mut self, operation: T) -> Self::Output;
+    fn evaluate_mut(&mut self, operation: State) -> Self::Output;
 }
 
 #[wasm_bindgen]
@@ -171,116 +174,32 @@ impl EvaluateMut<ast::MoveCmd> for AgentState {
 
     fn evaluate_mut(&mut self, operation: ast::MoveCmd) -> Self::Output {
         let ast::MoveCmd(steps) = operation;
+        let orientation = self.direction;
+        let origin = self.coords;
 
-        let res = match self.direction {
-            ast::Direction::N => {
-                let touched_cells: Vec<Coordinates> = (0..=steps)
-                    .into_iter()
-                    .map(|offset| Coordinates(self.coords.x(), self.coords.y() + offset))
-                    .collect();
-                let end = touched_cells
-                    .last()
-                    .copied()
-                    .unwrap_or_else(|| Coordinates(self.coords.x(), self.coords.y()));
+        let touched_cells: Vec<Coordinates> = (0..=steps)
+            .into_iter()
+            .map(|offset| move_in_direction(offset, orientation, origin))
+            .collect();
+        let end = touched_cells.last().copied().unwrap_or(origin);
 
-                self.coords = Coordinates(end.x(), end.y());
-                Ok(touched_cells)
-            }
-            ast::Direction::S => {
-                let touched_cells: Vec<Coordinates> = (0..=steps)
-                    .into_iter()
-                    .map(|offset| Coordinates(self.coords.x(), self.coords.y() - offset))
-                    .collect();
-                let end = touched_cells
-                    .last()
-                    .copied()
-                    .unwrap_or_else(|| Coordinates(self.coords.x(), self.coords.y()));
-
-                self.coords = Coordinates(end.x(), end.y());
-                Ok(touched_cells)
-            }
-            ast::Direction::E => {
-                let touched_cells: Vec<Coordinates> = (0..=steps)
-                    .into_iter()
-                    .map(|offset| Coordinates(self.coords.x() + offset, self.coords.y()))
-                    .collect();
-                let end = touched_cells
-                    .last()
-                    .copied()
-                    .unwrap_or_else(|| Coordinates(self.coords.x(), self.coords.y()));
-
-                self.coords = Coordinates(end.x(), end.y());
-                Ok(touched_cells)
-            }
-            ast::Direction::W => {
-                let touched_cells: Vec<Coordinates> = (0..=steps)
-                    .into_iter()
-                    .map(|offset| Coordinates(self.coords.x() - offset, self.coords.y()))
-                    .collect();
-                let end = touched_cells
-                    .last()
-                    .copied()
-                    .unwrap_or_else(|| Coordinates(self.coords.x(), self.coords.y()));
-
-                self.coords = Coordinates(end.x(), end.y());
-                Ok(touched_cells)
-            }
-            ast::Direction::NE => {
-                let touched_cells: Vec<Coordinates> = (0..=steps)
-                    .into_iter()
-                    .map(|offset| Coordinates(self.coords.x() + offset, self.coords.y() + offset))
-                    .collect();
-                let end = touched_cells
-                    .last()
-                    .copied()
-                    .unwrap_or_else(|| Coordinates(self.coords.x(), self.coords.y()));
-
-                self.coords = Coordinates(end.x(), end.y());
-                Ok(touched_cells)
-            }
-            ast::Direction::SE => {
-                let touched_cells: Vec<Coordinates> = (0..=steps)
-                    .into_iter()
-                    .map(|offset| Coordinates(self.coords.x() + offset, self.coords.y() - offset))
-                    .collect();
-                let end = touched_cells
-                    .last()
-                    .copied()
-                    .unwrap_or_else(|| Coordinates(self.coords.x(), self.coords.y()));
-
-                self.coords = Coordinates(end.x(), end.y());
-                Ok(touched_cells)
-            }
-            ast::Direction::SW => {
-                let touched_cells: Vec<Coordinates> = (0..=steps)
-                    .into_iter()
-                    .map(|offset| Coordinates(self.coords.x() - offset, self.coords.y() - offset))
-                    .collect();
-                let end = touched_cells
-                    .last()
-                    .copied()
-                    .unwrap_or_else(|| Coordinates(self.coords.x(), self.coords.y()));
-
-                self.coords = Coordinates(end.x(), end.y());
-                Ok(touched_cells)
-            }
-            ast::Direction::NW => {
-                let touched_cells: Vec<Coordinates> = (0..=steps)
-                    .into_iter()
-                    .map(|offset| Coordinates(self.coords.x() - offset, self.coords.y() + offset))
-                    .collect();
-                let end = touched_cells
-                    .last()
-                    .copied()
-                    .unwrap_or_else(|| Coordinates(self.coords.x(), self.coords.y()));
-
-                self.coords = Coordinates(end.x(), end.y());
-                Ok(touched_cells)
-            }
-        };
-
+        self.coords = Coordinates(end.x(), end.y());
         self.pc += 1;
-        res
+        Ok(touched_cells)
+    }
+}
+
+/// Updates coordinates to represent a move of n steps in a given direction
+fn move_in_direction(steps: u32, direction: ast::Direction, origin: Coordinates) -> Coordinates {
+    match direction {
+        ast::Direction::N => Coordinates(origin.x(), origin.y() + steps),
+        ast::Direction::NE => Coordinates(origin.x() + steps, origin.y() + steps),
+        ast::Direction::E => Coordinates(origin.x() + steps, origin.y()),
+        ast::Direction::SE => Coordinates(origin.x() - steps, origin.y() + steps),
+        ast::Direction::S => Coordinates(origin.x(), origin.y() - steps),
+        ast::Direction::SW => Coordinates(origin.x() - steps, origin.y() - steps),
+        ast::Direction::W => Coordinates(origin.x() - steps, origin.y()),
+        ast::Direction::NW => Coordinates(origin.x() - steps, origin.y() + steps),
     }
 }
 
