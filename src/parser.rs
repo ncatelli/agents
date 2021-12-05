@@ -134,9 +134,46 @@ fn command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> 
         face_command()
             .or(move_command)
             .or(turn_command)
-            .or(goto_command),
+            .or(goto_command)
+            .or(set_command)
+            .or(jump_true_command),
         newline_terminated_whitespace(),
     ))
+}
+
+fn set_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
+    expect_str("set ")
+        .and_then(|_| {
+            parcel::join(
+                identifier(),
+                parcel::right(parcel::join(
+                    whitespace_wrapped(expect_character('=')),
+                    expression(),
+                )),
+            )
+        })
+        .map(|(id, expr)| ParsedCommand::SetVariable(id, expr))
+}
+
+fn jump_true_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
+    expect_str("jump to ")
+        .and_then(|_| {
+            parcel::join(
+                identifier(),
+                whitespace_wrapped(expect_str("if")).and_then(|_| {
+                    parcel::join(
+                        expression(),
+                        parcel::right(parcel::join(
+                            whitespace_wrapped(expect_str("is")),
+                            expression(),
+                        )),
+                    )
+                }),
+            )
+        })
+        .map(|(id, (lhs, rhs))| {
+            ParsedCommand::JumpTrue(id, ast::Expression::Equals(Box::new(lhs), Box::new(rhs)))
+        })
 }
 
 fn move_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
@@ -376,68 +413,41 @@ fn unzip<A, B>(pair: Vec<(A, B)>) -> (Vec<A>, Vec<B>) {
 
 #[cfg(test)]
 mod tests {
-    const MIN_TEST_PROGRAM: &str = "agent red_agent:
+    const TEST_PROGRAM: &str = "agent red_agent:
+    set color = 255
+    set x = 0
+    set y = 0
+    set direction = 0
+    set a = 0
     loop:
         face NW
         move 10
         turn -4
+        goto loop
+        set a = 5
+        jump to exit if a is 1
+    exit:
 agent blue_agent:
+    set color = 255
+    set x = 0
+    set y = 0
+    set direction = 0
+    set a = 0
     loop:
         face NE
         move 20
         turn -30
-
-";
-
-    const _TEST_PROGRAM: &str = "agent red_agent:
-    set color = 0xff0000
-    set x = 0
-    set y = 0
-    set direction = 0
-    set a = 0
-    loop:
-        set a = a + 1
-        move 10
-        jump to set_zero if a is 1
-        jump to set_one if a is 0
-        goto exit
-    set_one:
-        set a = 1
-        face NW
         goto loop
-    set_zero:
-        set a = 0
-        turn -2
-        goto loop
+        set b = 5
     exit:
-agent blue_agent:
-    set color = 0x00ff00
-    set x = 0
-    set y = 0
-    set direction = 0
-    set a = 0
-    loop:
-        set a = a + 1
-        move 10
-        jump to set_zero if a is 1
-        jump to set_one if a is 0
-        goto exit
-    set_one:
-        set a 1
-        face NW
-        goto loop
-    set_zero:
-        set a 0
-        turn -2
-        goto loop
-    exit:";
+";
 
     #[test]
     fn should_parse_agent_commands() {
-        let input: Vec<(usize, char)> = MIN_TEST_PROGRAM.chars().enumerate().collect();
+        let input: Vec<(usize, char)> = TEST_PROGRAM.chars().enumerate().collect();
         let res = crate::parser::parse(&input);
 
-        assert_eq!(Ok(2), res.map(|program| program.agents().len()));
+        assert_eq!(Ok(2), res.map(|program| program.agents().len()),);
     }
 
     use parcel::Parser;
