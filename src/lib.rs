@@ -89,7 +89,36 @@ impl EvaluateMut<ast::Command> for AgentState {
         match operation {
             ast::Command::SetVariable(id, expr) => {
                 let value = self.evaluate_mut(expr)?;
-                self.vars.insert(id, value);
+
+                match id.as_str() {
+                    "pc" => match value {
+                        Primitive::Integer(i) if i > 0 => self.pc = i as u32,
+                        other => return Err(format!("invalid type [{:?}] for pc", other)),
+                    },
+                    "x" => match value {
+                        Primitive::Integer(i) if i > 0 => {
+                            self.coords = Coordinates(i as u32, self.coords.y())
+                        }
+                        other => return Err(format!("invalid type [{:?}] for x", other)),
+                    },
+                    "y" => match value {
+                        Primitive::Integer(i) if i > 0 => {
+                            self.coords = Coordinates(self.coords.x(), i as u32)
+                        }
+                        other => return Err(format!("invalid type [{:?}] for y", other)),
+                    },
+                    "direction" => match value {
+                        Primitive::Integer(i) if i > 0 => self.direction = ast::Direction::from(i),
+                        other => return Err(format!("invalid type [{:?}] for direction", other)),
+                    },
+                    "color" => match value {
+                        Primitive::Integer(i) if i > 0 => self.color = i as u32,
+                        other => return Err(format!("invalid type [{:?}] for color", other)),
+                    },
+                    _ => {
+                        self.vars.insert(id, value);
+                    }
+                };
                 self.pc += 1;
                 Ok(vec![])
             }
