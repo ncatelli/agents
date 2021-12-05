@@ -57,7 +57,7 @@ impl Coordinates {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AgentState {
     vars: HashMap<String, ast::Primitive>,
     commands: Vec<ast::Command>,
@@ -83,6 +83,44 @@ impl AgentState {
             coords: Coordinates(x, y),
             direction,
             color,
+        }
+    }
+
+    pub fn with_commands(mut self, commands: Vec<ast::Command>) -> Self {
+        self.commands = commands;
+        self
+    }
+
+    pub fn with_pc(mut self, pc: u32) -> Self {
+        self.pc = pc;
+        self
+    }
+
+    pub fn with_direction(mut self, direction: ast::Direction) -> Self {
+        self.direction = direction;
+        self
+    }
+
+    pub fn with_color(mut self, color: u32) -> Self {
+        self.color = color;
+        self
+    }
+
+    pub fn with_coordinates(mut self, coordinates: Coordinates) -> Self {
+        self.coords = coordinates;
+        self
+    }
+}
+
+impl Default for AgentState {
+    fn default() -> Self {
+        Self {
+            vars: Default::default(),
+            commands: Default::default(),
+            pc: Default::default(),
+            coords: Coordinates(0, 0),
+            direction: ast::Direction::S,
+            color: Default::default(),
         }
     }
 }
