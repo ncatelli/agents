@@ -16,11 +16,11 @@ agent red_agent:
         jump to set_one if a is 0
         goto exit
     set_one:
-        set a 1
+        set a = 1
         face NW
         goto loop
     set_zero:
-        set a 0
+        set a = 0
         turn -2
         goto loop
     exit:
