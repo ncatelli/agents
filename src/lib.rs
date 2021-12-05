@@ -91,10 +91,6 @@ impl EvaluateMut<ast::Command> for AgentState {
                 let value = self.evaluate_mut(expr)?;
 
                 match id.as_str() {
-                    "pc" => match value {
-                        Primitive::Integer(i) if i > 0 => self.pc = i as u32,
-                        other => return Err(format!("invalid type [{:?}] for pc", other)),
-                    },
                     "x" => match value {
                         Primitive::Integer(i) if i > 0 => {
                             self.coords = Coordinates(i as u32, self.coords.y())
@@ -106,10 +102,6 @@ impl EvaluateMut<ast::Command> for AgentState {
                             self.coords = Coordinates(self.coords.x(), i as u32)
                         }
                         other => return Err(format!("invalid type [{:?}] for y", other)),
-                    },
-                    "direction" => match value {
-                        Primitive::Integer(i) if i > 0 => self.direction = ast::Direction::from(i),
-                        other => return Err(format!("invalid type [{:?}] for direction", other)),
                     },
                     "color" => match value {
                         Primitive::Integer(i) if i > 0 => self.color = i as u32,
