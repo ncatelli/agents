@@ -92,6 +92,7 @@ pub enum Expression {
     Div(Box<Expression>, Box<Expression>),
 }
 
+/// Represents the cardinal directions that an agent can face.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]
 pub enum Direction {
@@ -121,6 +122,7 @@ impl From<i32> for Direction {
     }
 }
 
+/// Valid primititive types for the language, currently only integer or boolean.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Primitive {
     Integer(i32),
