@@ -26,10 +26,12 @@ pub enum ParseErr {
 }
 
 #[allow(dead_code)]
-pub fn parse(input: &[(usize, char)]) -> Result<ast::Program, ParseErr> {
-    parcel::one_or_more(agent())
+pub fn parse(source: &str) -> Result<ast::Program, ParseErr> {
+    let input: Vec<(usize, char)> = source.chars().enumerate().collect();
+
+    let res = parcel::one_or_more(agent())
         .map(ast::Program::new)
-        .parse(input)
+        .parse(&input)
         .map_err(ParseErr::Unspecified)
         .and_then(|ms| match ms {
             MatchStatus::Match {
@@ -40,7 +42,8 @@ pub fn parse(input: &[(usize, char)]) -> Result<ast::Program, ParseErr> {
             MatchStatus::NoMatch(_) => {
                 Err(ParseErr::Unspecified("not a valid program".to_string()))
             }
-        })
+        });
+    res
 }
 
 fn agent<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Agent> {
@@ -444,8 +447,7 @@ agent blue_agent:
 
     #[test]
     fn should_parse_agent_commands() {
-        let input: Vec<(usize, char)> = TEST_PROGRAM.chars().enumerate().collect();
-        let res = crate::parser::parse(&input);
+        let res = crate::parser::parse(TEST_PROGRAM);
 
         assert_eq!(Ok(2), res.map(|program| program.agents().len()),);
     }

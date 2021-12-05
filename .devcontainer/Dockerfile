@@ -13,5 +13,3 @@ RUN apt update && \
     apt install -y build-essential curl pkg-config libssl-dev
 
 RUN su ${USERNAME} -c "bash /tmp/library-scripts/rustup.sh"
-
-RUN cargo install wasm-pack

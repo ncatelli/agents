@@ -1,7 +1,5 @@
 # Agents
 
-Some rendering code copied from https://github.com/rustwasm/wasm_game_of_life/.
-
 ## Examples
 
 ```
@@ -33,3 +31,7 @@ agent blue_agent:
         set b = 5
     exit:
 ```
+
+## Referenced Links and Credits
+
+- Frontend and rendering code heavily referenced examples from https://github.com/rustwasm/wasm_game_of_life/
