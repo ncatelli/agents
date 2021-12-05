@@ -310,7 +310,7 @@ impl EvaluateMut<ast::Expression> for AgentState {
                 .vars
                 .get(&key)
                 .copied()
-                .ok_or_else(|| format!("key [{}] undefined.", &key)),
+                .ok_or_else(|| format!("key [{}] undefined", &key)),
             Expression::Equals(lhs, rhs) => {
                 let l = self.evaluate_mut(*lhs)?;
                 let r = self.evaluate_mut(*rhs)?;
