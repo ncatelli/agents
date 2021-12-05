@@ -353,10 +353,15 @@ lazy_static! {
             Command::Move(2),
             Command::Goto(0)
         ];
-        board.agents.push(AgentState::new(commands.clone(), 0, 4, 4, ast::Direction::N, 0xff0000));
+        // board.agents.push(AgentState::new(commands.clone(), 0, 4, 4, ast::Direction::N, 0xff0000));
         board.agents.push(AgentState::new(commands.clone(), 0, 6, 4, ast::Direction::E, 0x0000ff));
         Mutex::new(board)
     };
+}
+
+#[wasm_bindgen]
+pub fn run(source: &str) {
+    
 }
 
 #[wasm_bindgen]
