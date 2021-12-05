@@ -1,10 +1,30 @@
+use std::fmt::format;
+use std::slice::SliceIndex;
+
 use parcel::parsers::character::*;
 use parcel::prelude::v1::*;
 
 use crate::ast;
 
+#[derive(Debug)]
+pub enum CommandOrLabel {
+    Label(String),
+    Command(ParsedCommand),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ParsedCommand {
+    SetVariable(String, ast::Expression),
+    Face(ast::Direction),
+    Turn(i32),
+    Move(u32),
+    Goto(String),
+    JumpTrue(String, ast::Expression),
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParseErr {
+    UndefinedLabel(String),
     Unspecified(String),
 }
 
@@ -27,16 +47,81 @@ pub fn parse(input: &[(usize, char)]) -> Result<ast::Program, ParseErr> {
 }
 
 fn agent<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Agent> {
-    expect_str("agent ")
-        .and_then(|_| parcel::join(label(), parcel::zero_or_more(command_or_label())))
-        .map(|(_, commands)| ast::Agent::new(commands))
+    use std::collections::HashMap;
+    move |input: &'a [(usize, char)]| {
+        let (span, remainder, command_or_labels) = expect_str("agent ")
+            .and_then(|_| parcel::join(label(), parcel::zero_or_more(command_or_label())))
+            .parse(input)
+            .map_err(ParseErr::Unspecified)
+            .and_then(|ms| match ms {
+                MatchStatus::Match {
+                    span,
+                    remainder,
+                    inner,
+                } => Ok((span, remainder, inner.1)),
+                MatchStatus::NoMatch(_) => {
+                    Err(ParseErr::Unspecified("not a valid program".to_string()))
+                }
+            })
+            .map_err(|e| format!("{:?}", e))?;
+
+        let labels =
+            command_or_labels
+                .iter()
+                .enumerate()
+                .fold(HashMap::new(), |mut labels, (idx, col)| match col {
+                    CommandOrLabel::Label(id) => {
+                        labels.insert(id.clone(), idx);
+                        labels
+                    }
+                    CommandOrLabel::Command(_) => labels,
+                });
+        let commands: Vec<ParsedCommand> = command_or_labels
+            .into_iter()
+            .map(|col| match col {
+                CommandOrLabel::Label(_) => None,
+                CommandOrLabel::Command(pc) => Some(pc),
+            })
+            .flatten()
+            .collect();
+
+        commands
+            .into_iter()
+            .map(|pc| match pc {
+                ParsedCommand::SetVariable(id, expr) => Ok(ast::Command::SetVariable(id, expr)),
+                ParsedCommand::Face(direction) => Ok(ast::Command::Face(direction)),
+                ParsedCommand::Turn(rotations) => Ok(ast::Command::Turn(rotations)),
+                ParsedCommand::Move(distance) => Ok(ast::Command::Move(distance)),
+                ParsedCommand::Goto(label) => {
+                    if let Some(&offset) = labels.get(&label) {
+                        Ok(ast::Command::Goto(offset as u32))
+                    } else {
+                        Err(ParseErr::UndefinedLabel(label))
+                    }
+                }
+                ParsedCommand::JumpTrue(label, expr) => {
+                    if let Some(&offset) = labels.get(&label) {
+                        Ok(ast::Command::JumpTrue(offset as u32, expr))
+                    } else {
+                        Err(ParseErr::UndefinedLabel(label))
+                    }
+                }
+            })
+            .collect::<Result<Vec<ast::Command>, ParseErr>>()
+            .map_err(|e| format!("{:?}", e))
+            .map(|commands| parcel::MatchStatus::Match {
+                span,
+                remainder,
+                inner: ast::Agent::new(commands),
+            })
+    }
 }
 
-fn command_or_label<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::CommandOrLabel> {
+fn command_or_label<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], CommandOrLabel> {
     parcel::one_or_more(non_newline_whitespace()).and_then(|_| {
         command()
-            .map(ast::CommandOrLabel::Command)
-            .or(|| label().map(ast::CommandOrLabel::Label))
+            .map(CommandOrLabel::Command)
+            .or(|| label().map(CommandOrLabel::Label))
     })
 }
 
@@ -47,23 +132,29 @@ fn label<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], String> {
     ))
 }
 
-fn command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Command> {
+fn command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
     parcel::left(parcel::join(
-        face_command().or(move_command),
+        face_command().or(move_command).or(goto_command),
         newline_terminated_whitespace(),
     ))
 }
 
-pub fn move_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Command> {
+pub fn move_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
     expect_str("move ")
         .and_then(|_| dec_u32())
-        .map(ast::Command::Move)
+        .map(ParsedCommand::Move)
 }
 
-fn face_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Command> {
+fn face_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
     expect_str("face ")
         .and_then(|_| direction())
-        .map(ast::Command::Face)
+        .map(ParsedCommand::Face)
+}
+
+fn goto_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
+    expect_str("goto ")
+        .and_then(|_| identifier())
+        .map(ParsedCommand::Goto)
 }
 
 fn direction<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Direction> {

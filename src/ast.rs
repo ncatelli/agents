@@ -15,19 +15,13 @@ impl Program {
 
 #[derive(Debug)]
 pub struct Agent {
-    commands: Vec<CommandOrLabel>,
+    commands: Vec<Command>,
 }
 
 impl Agent {
-    pub fn new(commands: Vec<CommandOrLabel>) -> Self {
+    pub fn new(commands: Vec<Command>) -> Self {
         Self { commands }
     }
-}
-
-#[derive(Debug)]
-pub enum CommandOrLabel {
-    Label(String),
-    Command(Command),
 }
 
 #[derive(Debug, PartialEq)]
