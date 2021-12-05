@@ -1,6 +1,3 @@
-use std::fmt::format;
-use std::slice::SliceIndex;
-
 use parcel::parsers::character::*;
 use parcel::prelude::v1::*;
 
@@ -65,28 +62,28 @@ fn agent<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Agent> {
             })
             .map_err(|e| format!("{:?}", e))?;
 
-        let labels =
-            command_or_labels
-                .iter()
-                .enumerate()
-                .fold(HashMap::new(), |mut labels, (idx, col)| match col {
+        let labels = command_or_labels
+            .iter()
+            .fold(
+                (HashMap::new(), 0usize),
+                |(mut labels, idx), col| match col {
                     CommandOrLabel::Label(id) => {
                         labels.insert(id.clone(), idx);
-                        labels
+                        (labels, idx)
                     }
-                    CommandOrLabel::Command(_) => labels,
-                });
-        let commands: Vec<ParsedCommand> = command_or_labels
+                    CommandOrLabel::Command(_) => (labels, idx + 1),
+                },
+            )
+            // Index isn't needeed after calculating the labels.
+            .0;
+
+        command_or_labels
             .into_iter()
             .map(|col| match col {
                 CommandOrLabel::Label(_) => None,
                 CommandOrLabel::Command(pc) => Some(pc),
             })
             .flatten()
-            .collect();
-
-        commands
-            .into_iter()
             .map(|pc| match pc {
                 ParsedCommand::SetVariable(id, expr) => Ok(ast::Command::SetVariable(id, expr)),
                 ParsedCommand::Face(direction) => Ok(ast::Command::Face(direction)),
@@ -134,12 +131,15 @@ fn label<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], String> {
 
 fn command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
     parcel::left(parcel::join(
-        face_command().or(move_command).or(goto_command),
+        face_command()
+            .or(move_command)
+            .or(turn_command)
+            .or(goto_command),
         newline_terminated_whitespace(),
     ))
 }
 
-pub fn move_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
+fn move_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
     expect_str("move ")
         .and_then(|_| dec_u32())
         .map(ParsedCommand::Move)
@@ -149,6 +149,12 @@ fn face_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedComm
     expect_str("face ")
         .and_then(|_| direction())
         .map(ParsedCommand::Face)
+}
+
+fn turn_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
+    expect_str("turn ")
+        .and_then(|_| dec_i32())
+        .map(ParsedCommand::Turn)
 }
 
 fn goto_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
@@ -233,16 +239,153 @@ fn dec_u32<'a>() -> impl Parser<'a, &'a [(usize, char)], u32> {
     }
 }
 
+fn dec_i32<'a>() -> impl Parser<'a, &'a [(usize, char)], i32> {
+    move |input: &'a [(usize, char)]| {
+        let preparsed_input = input;
+        let res = parcel::join(
+            expect_character('-').optional(),
+            parcel::one_or_more(digit(10)),
+        )
+        .map(|(optional_sign, digits)| {
+            let sign = optional_sign
+                .map(|c| c.to_string())
+                .unwrap_or_else(|| "".to_string());
+            let vd: String = sign.chars().chain(digits.into_iter()).collect();
+            vd.parse::<i32>()
+        })
+        .parse(input);
+
+        match res {
+            Ok(MatchStatus::Match {
+                span,
+                remainder,
+                inner: Ok(u),
+            }) => Ok(MatchStatus::Match {
+                span,
+                remainder,
+                inner: u,
+            }),
+
+            Ok(MatchStatus::Match {
+                span: _,
+                remainder: _,
+                inner: Err(_),
+            }) => Ok(MatchStatus::NoMatch(preparsed_input)),
+
+            Ok(MatchStatus::NoMatch(remainder)) => Ok(MatchStatus::NoMatch(remainder)),
+            Err(e) => Err(e),
+        }
+    }
+}
+
+pub fn expression<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Expression> {
+    addition()
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum AdditionExprOp {
+    Plus,
+    Minus,
+}
+
+#[allow(clippy::redundant_closure)]
+fn addition<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Expression> {
+    parcel::join(
+        multiplication(),
+        parcel::zero_or_more(parcel::join(
+            whitespace_wrapped(
+                expect_character('+')
+                    .map(|_| AdditionExprOp::Plus)
+                    .or(|| expect_character('-').map(|_| AdditionExprOp::Minus)),
+            ),
+            whitespace_wrapped(multiplication()),
+        ))
+        .map(unzip),
+    )
+    .map(|(first_expr, (operators, operands))| {
+        operators
+            .into_iter()
+            .zip(operands.into_iter())
+            .fold(first_expr, |lhs, (operator, rhs)| match operator {
+                AdditionExprOp::Plus => ast::Expression::Add(Box::new(lhs), Box::new(rhs)),
+                AdditionExprOp::Minus => ast::Expression::Sub(Box::new(lhs), Box::new(rhs)),
+            })
+    })
+    .or(|| multiplication())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum MultiplicationExprOp {
+    Star,
+    Slash,
+}
+
+#[allow(clippy::redundant_closure)]
+fn multiplication<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Expression> {
+    parcel::join(
+        literal(),
+        parcel::zero_or_more(parcel::join(
+            whitespace_wrapped(
+                expect_character('*')
+                    .map(|_| MultiplicationExprOp::Star)
+                    .or(|| expect_character('/').map(|_| MultiplicationExprOp::Slash)),
+            ),
+            whitespace_wrapped(literal()),
+        ))
+        .map(unzip),
+    )
+    .map(|(first_expr, (operators, operands))| {
+        operators
+            .into_iter()
+            .zip(operands.into_iter())
+            .fold(first_expr, |lhs, (operator, rhs)| match operator {
+                MultiplicationExprOp::Star => ast::Expression::Mul(Box::new(lhs), Box::new(rhs)),
+                MultiplicationExprOp::Slash => ast::Expression::Div(Box::new(lhs), Box::new(rhs)),
+            })
+    })
+    .or(literal)
+}
+
+fn literal<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Expression> {
+    boolean()
+        .map(|b| ast::Expression::Literal(ast::Primitive::Boolean(b)))
+        .or(|| dec_i32().map(|num| ast::Expression::Literal(ast::Primitive::Integer(num))))
+        .or(|| identifier().map(ast::Expression::GetVariable))
+}
+
+fn boolean<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], bool> {
+    expect_str("true")
+        .map(|_| true)
+        .or(|| expect_str("false").map(|_| false))
+}
+
+fn whitespace_wrapped<'a, P, B>(parser: P) -> impl Parser<'a, &'a [(usize, char)], B>
+where
+    B: 'a,
+    P: Parser<'a, &'a [(usize, char)], B> + 'a,
+{
+    parcel::right(parcel::join(
+        parcel::zero_or_more(whitespace()),
+        parcel::left(parcel::join(parser, parcel::zero_or_more(whitespace()))),
+    ))
+}
+
+fn unzip<A, B>(pair: Vec<(A, B)>) -> (Vec<A>, Vec<B>) {
+    pair.into_iter().unzip()
+}
+
 #[cfg(test)]
 mod tests {
     const MIN_TEST_PROGRAM: &str = "agent red_agent:
     loop:
         face NW
         move 10
+        turn -4
 agent blue_agent:
     loop:
         face NE
         move 20
+        turn -30
 
 ";
 
@@ -290,10 +433,76 @@ agent blue_agent:
     exit:";
 
     #[test]
-    fn should_parse_agent_expression() {
+    fn should_parse_agent_commands() {
         let input: Vec<(usize, char)> = MIN_TEST_PROGRAM.chars().enumerate().collect();
         let res = crate::parser::parse(&input);
 
-        assert_eq!(Ok(2), res.map(|program| program.agents().len()))
+        assert_eq!(Ok(2), res.map(|program| program.agents().len()));
+    }
+
+    use parcel::Parser;
+
+    #[test]
+    fn should_parse_addition_expression() {
+        let input: Vec<(usize, char)> = "5 + 5".chars().enumerate().collect();
+        let res = crate::parser::expression().parse(&input);
+
+        assert_eq!(
+            Ok(parcel::MatchStatus::Match {
+                span: 0..0,
+                remainder: &input[5..],
+                inner: crate::ast::Expression::Add(
+                    Box::new(crate::ast::Expression::Literal(
+                        crate::ast::Primitive::Integer(5)
+                    )),
+                    Box::new(crate::ast::Expression::Literal(
+                        crate::ast::Primitive::Integer(5)
+                    )),
+                )
+            }),
+            res
+        );
+    }
+
+    #[test]
+    fn should_parse_multi_op_expression() {
+        let input: Vec<(usize, char)> = "5 * 5 + 5".chars().enumerate().collect();
+        let res = crate::parser::expression().parse(&input);
+
+        assert_eq!(
+            Ok(parcel::MatchStatus::Match {
+                span: 0..0,
+                remainder: &input[9..],
+                inner: crate::ast::Expression::Add(
+                    Box::new(crate::ast::Expression::Mul(
+                        Box::new(crate::ast::Expression::Literal(
+                            crate::ast::Primitive::Integer(5)
+                        )),
+                        Box::new(crate::ast::Expression::Literal(
+                            crate::ast::Primitive::Integer(5)
+                        )),
+                    )),
+                    Box::new(crate::ast::Expression::Literal(
+                        crate::ast::Primitive::Integer(5)
+                    )),
+                )
+            }),
+            res
+        );
+    }
+
+    #[test]
+    fn should_parse_literal_expression() {
+        let input: Vec<(usize, char)> = "5".chars().enumerate().collect();
+        let res = crate::parser::expression().parse(&input);
+
+        assert_eq!(
+            Ok(parcel::MatchStatus::Match {
+                span: 0..0,
+                remainder: &input[1..],
+                inner: crate::ast::Expression::Literal(crate::ast::Primitive::Integer(5)),
+            }),
+            res
+        );
     }
 }

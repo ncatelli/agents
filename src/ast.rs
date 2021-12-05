@@ -13,7 +13,13 @@ impl Program {
     }
 }
 
-#[derive(Debug)]
+impl From<Program> for Vec<Agent> {
+    fn from(program: Program) -> Self {
+        program.agents
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct Agent {
     commands: Vec<Command>,
 }
