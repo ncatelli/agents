@@ -1,7 +1,11 @@
 mod ast;
 
-use ast::Expression;
+#[macro_use]
+extern crate lazy_static;
+
+use ast::{Expression, Command};
 use wasm_bindgen::prelude::*;
+use std::sync::Mutex;
 
 pub trait Evaluate<T> {
     fn evaluate(self, state: T) -> T;
@@ -13,6 +17,7 @@ pub trait EvaluateMut<T> {
     fn evaluate_mut(&mut self, operation: T) -> Self::Output;
 }
 
+#[wasm_bindgen]
 #[derive(Debug, Clone, Copy)]
 pub struct Cell {
     color: u32,
@@ -32,7 +37,7 @@ impl Default for Cell {
 
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Coordinates(pub u32, pub u32);
 
 impl Coordinates {
@@ -321,27 +326,45 @@ impl Board {
 
 pub fn tick_agent(agent_state: &mut AgentState) -> Vec<Coordinates> {
     // TODO: implement interpreter here
-    agent_state.pc += 1 as u32;
-    todo!()
+    // TODO: change pc here
+    let command = agent_state.commands.get(agent_state.pc as usize).cloned().unwrap();
+    agent_state.evaluate_mut(command).unwrap()
 }
 
-pub fn tick(mut board: Board) -> Board {
+pub fn tick_world(board: &mut Board) {
+    let mut all_touched: HashMap<Coordinates, u32> = HashMap::new();
     for state in board.agents.iter_mut() {
         let touched = tick_agent(state);
-        // TODO: set color for touched cells
+        for t in touched.iter() {
+            all_touched.insert(Coordinates(t.x(), t.y()), state.color);
+        }
     }
 
-    board
+    for (coord, color) in all_touched {
+        board.update_cell_mut(coord.x(), coord.y(), |cell| cell.color = color);
+    }
 }
 
-pub fn tick_mut(_board: &mut Board) {}
-
-// call from js
-pub fn get_board_state(board: Board) -> Vec<u32> {
-    board.cells.into_iter().map(|c| c.color).collect()
+lazy_static! {
+    static ref BOARD: Mutex<Board> = {
+        let mut board = Board::new(50, 50);
+        let commands = vec![
+            Command::Move(2),
+            Command::Goto(0)
+        ];
+        board.agents.push(AgentState::new(commands.clone(), 0, 4, 4, ast::Direction::N, 0xff0000));
+        board.agents.push(AgentState::new(commands.clone(), 0, 6, 4, ast::Direction::E, 0x0000ff));
+        Mutex::new(board)
+    };
 }
 
 #[wasm_bindgen]
-pub fn run() -> u8 {
-    8
+pub fn tick() -> Vec<u32> {
+    tick_world(&mut BOARD.lock().unwrap());
+    get_board_state(&BOARD.lock().unwrap())
+}
+
+// call from js
+pub fn get_board_state(board: &Board) -> Vec<u32> {
+    board.cells.clone().into_iter().map(|c| c.color).collect()
 }
