@@ -233,16 +233,27 @@ impl EvaluateMut<ast::MoveCmd> for AgentState {
 
 /// Updates coordinates to represent a move of n steps in a given direction
 fn move_in_direction(steps: u32, direction: ast::Direction, origin: Coordinates) -> Coordinates {
-    match direction {
-        ast::Direction::N => Coordinates(origin.x(), origin.y() - steps),
-        ast::Direction::NE => Coordinates(origin.x() + steps, origin.y() - steps),
-        ast::Direction::NW => Coordinates(origin.x() - steps, origin.y() - steps),
-        ast::Direction::E => Coordinates(origin.x() + steps, origin.y()),
-        ast::Direction::SE => Coordinates(origin.x() - steps, origin.y() + steps),
-        ast::Direction::S => Coordinates(origin.x(), origin.y() + steps),
-        ast::Direction::SW => Coordinates(origin.x() - steps, origin.y() + steps),
-        ast::Direction::W => Coordinates(origin.x() - steps, origin.y()),
-    }
+    let Coordinates(x_u32, y_u32) = origin;
+    let steps = steps as i32;
+    let (x, y) = ((x_u32 as i32), (y_u32 as i32));
+
+    let (offset_x, offset_y) = match direction {
+        ast::Direction::N => (x, y - steps),
+        ast::Direction::NE => (x + steps, y - steps),
+        ast::Direction::NW => (x - steps, y - steps),
+        ast::Direction::E => (x + steps, y),
+        ast::Direction::SE => (x - steps, y + steps),
+        ast::Direction::S => (x, y + steps),
+        ast::Direction::SW => (x - steps, y + steps),
+        ast::Direction::W => (x - steps, y),
+    };
+
+    let (adjusted_x, adjusted_y) = (
+        (offset_x.abs() as u32) % BOARD_WIDTH,
+        (offset_y.abs() as u32) % BOARD_HEIGHT,
+    );
+
+    Coordinates(adjusted_x, adjusted_y)
 }
 
 impl EvaluateMut<ast::GotoCmd> for AgentState {
