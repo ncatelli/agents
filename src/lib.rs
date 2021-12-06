@@ -4,7 +4,7 @@ mod parser;
 #[macro_use]
 extern crate lazy_static;
 
-use ast::{Command, Expression};
+use ast::Expression;
 use std::sync::Mutex;
 use wasm_bindgen::prelude::*;
 
@@ -68,6 +68,7 @@ pub struct AgentState {
 }
 
 impl AgentState {
+    #[allow(dead_code)]
     fn new(
         commands: Vec<ast::Command>,
         pc: u32,
@@ -232,16 +233,27 @@ impl EvaluateMut<ast::MoveCmd> for AgentState {
 
 /// Updates coordinates to represent a move of n steps in a given direction
 fn move_in_direction(steps: u32, direction: ast::Direction, origin: Coordinates) -> Coordinates {
-    match direction {
-        ast::Direction::N => Coordinates(origin.x(), origin.y() - steps),
-        ast::Direction::NE => Coordinates(origin.x() + steps, origin.y() - steps),
-        ast::Direction::NW => Coordinates(origin.x() - steps, origin.y() - steps),
-        ast::Direction::E => Coordinates(origin.x() + steps, origin.y()),
-        ast::Direction::SE => Coordinates(origin.x() - steps, origin.y() + steps),
-        ast::Direction::S => Coordinates(origin.x(), origin.y() + steps),
-        ast::Direction::SW => Coordinates(origin.x() - steps, origin.y() + steps),
-        ast::Direction::W => Coordinates(origin.x() - steps, origin.y()),
-    }
+    let Coordinates(x_u32, y_u32) = origin;
+    let steps = steps as i32;
+    let (x, y) = ((x_u32 as i32), (y_u32 as i32));
+
+    let (offset_x, offset_y) = match direction {
+        ast::Direction::N => (x, y - steps),
+        ast::Direction::NE => (x + steps, y - steps),
+        ast::Direction::NW => (x - steps, y - steps),
+        ast::Direction::E => (x + steps, y),
+        ast::Direction::SE => (x - steps, y + steps),
+        ast::Direction::S => (x, y + steps),
+        ast::Direction::SW => (x - steps, y + steps),
+        ast::Direction::W => (x - steps, y),
+    };
+
+    const BW: i32 = BOARD_WIDTH as i32;
+    const BH: i32 = BOARD_HEIGHT as i32;
+
+    let (adjusted_x, adjusted_y) = ((offset_x % BW + BW) % BW, (offset_y % BH + BH) % BH);
+
+    Coordinates(adjusted_x as u32, adjusted_y as u32)
 }
 
 impl EvaluateMut<ast::GotoCmd> for AgentState {
@@ -388,10 +400,11 @@ pub fn tick_world(board: &mut Board) {
     }
 }
 
+pub const BOARD_WIDTH: u32 = 50;
+pub const BOARD_HEIGHT: u32 = 50;
+
 lazy_static! {
-    static ref BOARD: Mutex<Board> = {
-        Mutex::new(Board::new(50, 50))
-    };
+    static ref BOARD: Mutex<Board> = Mutex::new(Board::new(BOARD_WIDTH, BOARD_HEIGHT));
 }
 
 #[wasm_bindgen]
@@ -409,7 +422,6 @@ pub fn tick() -> Vec<u32> {
     get_board_state(&BOARD.lock().unwrap())
 }
 
-// call from js
 pub fn get_board_state(board: &Board) -> Vec<u32> {
     board.cells.clone().into_iter().map(|c| c.color).collect()
 }

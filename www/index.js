@@ -40,7 +40,7 @@ function drawGrid() {
   }
 
   ctx.stroke();
-  
+
   let colors = wasm.tick();
   for (let y = 0; y < 50; y++) {
     for (let x = 0; x < 50; x++) {
@@ -72,7 +72,6 @@ document.getElementById('editor').innerHTML = `agent red_agent:
     set color = 255
     set x = 20
     set y = 20
-    set direction = 0
     set a = 0
     loop:
         face NW
@@ -86,8 +85,6 @@ agent blue_agent:
     set color = 255
     set x = 20
     set y = 20
-    set direction = 0
-    set a = 0
     loop:
         face NE
         move 2
