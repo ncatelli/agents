@@ -248,12 +248,12 @@ fn move_in_direction(steps: u32, direction: ast::Direction, origin: Coordinates)
         ast::Direction::W => (x - steps, y),
     };
 
-    let (adjusted_x, adjusted_y) = (
-        (offset_x.abs() as u32) % BOARD_WIDTH,
-        (offset_y.abs() as u32) % BOARD_HEIGHT,
-    );
+    const BW: i32 = BOARD_WIDTH as i32;
+    const BH: i32 = BOARD_HEIGHT as i32;
 
-    Coordinates(adjusted_x, adjusted_y)
+    let (adjusted_x, adjusted_y) = ((offset_x % BW + BW) % BW, (offset_y % BH + BH) % BH);
+
+    Coordinates(adjusted_x as u32, adjusted_y as u32)
 }
 
 impl EvaluateMut<ast::GotoCmd> for AgentState {
