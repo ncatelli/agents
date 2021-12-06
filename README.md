@@ -4,7 +4,7 @@
 
 ```
 agent red_agent:
-    set color = 255
+    set color = 16711680
     set x = 0
     set y = 0
     set direction = 0

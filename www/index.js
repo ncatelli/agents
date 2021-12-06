@@ -69,7 +69,7 @@ document.getElementById('runcode').addEventListener('click', () => {
 loop();
 
 document.getElementById('editor').innerHTML = `agent red_agent:
-    set color = 255
+    set color = 16711680
     set x = 20
     set y = 20
     set a = 0
