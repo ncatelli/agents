@@ -324,8 +324,8 @@ impl EvaluateMut<MoveCmd<ReflectOnOverflow>> for AgentState {
 
         let mut touched_cells = vec![];
 
-        let board_width = BOARD_WIDTH - 1;
-        let board_height = BOARD_HEIGHT - 1;
+        let board_width = BOARD_WIDTH;
+        let board_height = BOARD_HEIGHT;
 
         for _ in 0..steps {
             let Coordinates(x, y) = self.coords;
@@ -373,13 +373,15 @@ impl EvaluateMut<MoveCmd<ReflectOnOverflow>> for AgentState {
                 ast::Direction::NE => (x + 1, y - 1),
                 ast::Direction::NW => (x - 1, y - 1),
                 ast::Direction::E => (x + 1, y),
-                ast::Direction::SE => (x - 1, y + 1),
+                ast::Direction::SE => (x + 1, y + 1),
                 ast::Direction::S => (x, y + 1),
                 ast::Direction::SW => (x - 1, y + 1),
                 ast::Direction::W => (x - 1, y),
             };
 
-            touched_cells.push(Coordinates(offset_x as u32, offset_y as u32))
+            let new_coords = Coordinates(offset_x as u32, offset_y as u32);
+            touched_cells.push(new_coords);
+            self.coords = new_coords;
         }
 
         let end = touched_cells.last().copied().unwrap_or(self.coords);
