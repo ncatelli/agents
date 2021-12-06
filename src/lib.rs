@@ -4,7 +4,7 @@ mod parser;
 #[macro_use]
 extern crate lazy_static;
 
-use ast::{Command, Expression};
+use ast::Expression;
 use std::sync::Mutex;
 use wasm_bindgen::prelude::*;
 
@@ -68,6 +68,7 @@ pub struct AgentState {
 }
 
 impl AgentState {
+    #[allow(dead_code)]
     fn new(
         commands: Vec<ast::Command>,
         pc: u32,
