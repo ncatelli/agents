@@ -304,36 +304,68 @@ impl EvaluateMut<MoveCmd<ReflectOnOverflow>> for AgentState {
 
     fn evaluate_mut(&mut self, operation: MoveCmd<ReflectOnOverflow>) -> Self::Output {
         let MoveCmd::<ReflectOnOverflow>(_, steps) = operation;
-        let orientation = self.direction;
-        let origin = self.coords;
 
-        let touched_cells: Vec<Coordinates> = (0..=steps)
-            .into_iter()
-            .map(|offset| {
-                const BW: i32 = BOARD_WIDTH as i32;
-                const BH: i32 = BOARD_HEIGHT as i32;
+        let mut touched_cells = vec![];
 
-                let Coordinates(x_u32, y_u32) = origin;
-                let steps = offset as i32;
-                let (x, y) = ((x_u32 as i32), (y_u32 as i32));
+        let board_width = BOARD_WIDTH - 1;
+        let board_height = BOARD_HEIGHT - 1;
 
-                let (offset_x, offset_y) = match orientation {
-                    ast::Direction::N => (x, y - steps),
-                    ast::Direction::NE => (x + steps, y - steps),
-                    ast::Direction::NW => (x - steps, y - steps),
-                    ast::Direction::E => (x + steps, y),
-                    ast::Direction::SE => (x - steps, y + steps),
-                    ast::Direction::S => (x, y + steps),
-                    ast::Direction::SW => (x - steps, y + steps),
-                    ast::Direction::W => (x - steps, y),
-                };
+        for _ in 0..steps {
+            let Coordinates(x, y) = self.coords;
 
-                let (adjusted_x, adjusted_y) = ((offset_x % BW + BW), (offset_y % BH + BH));
+            match self.direction {
+                ast::Direction::N if y == 0 => self.direction = self.direction.invert_y(),
+                ast::Direction::NE if x == board_width && y == 0 => {
+                    self.direction = self.direction.invert_xy()
+                }
+                ast::Direction::NE if x == board_width => {
+                    self.direction = self.direction.invert_x()
+                }
+                ast::Direction::NE if y == 0 => self.direction = self.direction.invert_y(),
+                ast::Direction::NW if x == 0 && y == 0 => {
+                    self.direction = self.direction.invert_xy()
+                }
+                ast::Direction::NW if x == 0 => self.direction = self.direction.invert_x(),
+                ast::Direction::NW if y == 0 => self.direction = self.direction.invert_y(),
+                ast::Direction::E if x == board_width => self.direction = self.direction.invert_x(),
+                ast::Direction::SE if x == board_width && y == board_height => {
+                    self.direction = self.direction.invert_xy()
+                }
+                ast::Direction::SE if x == board_width => {
+                    self.direction = self.direction.invert_x()
+                }
+                ast::Direction::SE if y == board_height => {
+                    self.direction = self.direction.invert_y()
+                }
+                ast::Direction::S if y == board_height => {
+                    self.direction = self.direction.invert_y()
+                }
+                ast::Direction::SW if x == 0 && y == board_height => {
+                    self.direction = self.direction.invert_xy()
+                }
+                ast::Direction::SW if x == 0 => self.direction = self.direction.invert_x(),
+                ast::Direction::SW if y == board_height => {
+                    self.direction = self.direction.invert_y()
+                }
+                ast::Direction::W if x == 0 => self.direction = self.direction.invert_x(),
+                _ => (),
+            };
 
-                Coordinates(adjusted_x as u32, adjusted_y as u32)
-            })
-            .collect();
-        let end = touched_cells.last().copied().unwrap_or(origin);
+            let (offset_x, offset_y) = match self.direction {
+                ast::Direction::N => (x, y - 1),
+                ast::Direction::NE => (x + 1, y - 1),
+                ast::Direction::NW => (x - 1, y - 1),
+                ast::Direction::E => (x + 1, y),
+                ast::Direction::SE => (x - 1, y + 1),
+                ast::Direction::S => (x, y + 1),
+                ast::Direction::SW => (x - 1, y + 1),
+                ast::Direction::W => (x - 1, y),
+            };
+
+            touched_cells.push(Coordinates(offset_x as u32, offset_y as u32))
+        }
+
+        let end = touched_cells.last().copied().unwrap_or(self.coords);
 
         self.coords = Coordinates(end.x(), end.y());
         self.pc += 1;
