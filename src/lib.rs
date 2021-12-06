@@ -156,17 +156,17 @@ where
 /// Sets a variable identified by the string to the primitive evaluated to by
 /// the associated Expression on an associated agent..
 #[derive(Debug, Clone, PartialEq)]
-pub struct SetVariableCmd(pub String, pub Expression);
+pub(crate) struct SetVariableCmd(pub String, pub Expression);
 
 /// Defines the direction an agent should face.
 #[derive(Debug, Clone, PartialEq)]
-pub struct FaceCmd(pub ast::Direction);
+pub(crate) struct FaceCmd(pub ast::Direction);
 
 /// Turns by a number of rotations where a positive number represents a
 /// clockwise rotation and a negavite represents a counter-clockwise
 /// rotation.
 #[derive(Debug, Clone, PartialEq)]
-pub struct TurnCmd(pub i32);
+pub(crate) struct TurnCmd(pub i32);
 
 /// A marker trait used to flag traits that are used for implementing agent
 /// behavior when encountering a border boundary..
@@ -187,16 +187,16 @@ impl BoardBoundaryInteraction for WrapOnOverflow {}
 /// Move specifies the steps that an agent will move in the direction it is
 /// facing.
 #[derive(Debug, Clone, PartialEq)]
-pub struct MoveCmd<BI: BoardBoundaryInteraction>(pub BI, pub u32);
+pub(crate) struct MoveCmd<BI: BoardBoundaryInteraction>(pub BI, pub u32);
 
 /// Goto jumps to the enclosed offset in an agents command list.
 #[derive(Debug, Clone, PartialEq)]
-pub struct GotoCmd(pub u32);
+pub(crate) struct GotoCmd(pub u32);
 
 /// Like Goto, JumpTrue jumps to the enclosed offset if the passed conditional
 /// expression evaluates to true.
 #[derive(Debug, Clone, PartialEq)]
-pub struct JumpTrueCmd(pub u32, pub Expression);
+pub(crate) struct JumpTrueCmd(pub u32, pub Expression);
 
 impl EvaluateMut<ast::Command> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
