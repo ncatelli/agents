@@ -88,6 +88,45 @@ pub enum Direction {
     NW,
 }
 
+impl Direction {
+    pub fn invert_x(self) -> Self {
+        match self {
+            Direction::NE => Direction::NW,
+            Direction::E => Direction::W,
+            Direction::SE => Direction::SW,
+            Direction::SW => Direction::SE,
+            Direction::W => Direction::E,
+            Direction::NW => Direction::NE,
+            other => other,
+        }
+    }
+
+    pub fn invert_y(self) -> Self {
+        match self {
+            Direction::NE => Direction::SE,
+            Direction::SE => Direction::NE,
+            Direction::SW => Direction::NW,
+            Direction::NW => Direction::SW,
+            Direction::N => Direction::S,
+            Direction::S => Direction::N,
+            other => other,
+        }
+    }
+
+    pub fn invert_xy(self) -> Self {
+        match self {
+            Direction::NE => Direction::SW,
+            Direction::SE => Direction::NW,
+            Direction::SW => Direction::NE,
+            Direction::NW => Direction::SE,
+            Direction::N => Direction::S,
+            Direction::S => Direction::N,
+            Direction::E => Direction::W,
+            Direction::W => Direction::E,
+        }
+    }
+}
+
 impl From<i32> for Direction {
     fn from(src: i32) -> Self {
         match (src % 8).abs() {
