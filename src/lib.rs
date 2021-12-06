@@ -390,26 +390,17 @@ pub fn tick_world(board: &mut Board) {
 
 lazy_static! {
     static ref BOARD: Mutex<Board> = {
-        let mut board = Board::new(50, 50);
-        let commands = vec![Command::Move(2), Command::Goto(0)];
-        board.agents.push(AgentState::new(
-            commands.clone(),
-            0,
-            4,
-            4,
-            ast::Direction::N,
-            0xff0000,
-        ));
-        board.agents.push(AgentState::new(
-            commands,
-            0,
-            6,
-            4,
-            ast::Direction::E,
-            0x0000ff,
-        ));
-        Mutex::new(board)
+        Mutex::new(Board::new(50, 50))
     };
+}
+
+#[wasm_bindgen]
+pub fn run(source: &str) {
+    let program = parser::parse(source).unwrap();
+    for agent in <Vec<ast::Agent>>::from(program).into_iter() {
+        let new_state = AgentState::default().with_commands(agent.commands);
+        BOARD.lock().unwrap().agents.push(new_state);
+    }
 }
 
 #[wasm_bindgen]
