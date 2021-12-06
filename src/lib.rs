@@ -13,12 +13,18 @@ mod tests;
 
 /// Provides traits for evaluating a type onto a state, returning the modified
 /// state.
-pub trait Evaluate<T> {
+pub trait Evaluate<BI, T>
+where
+    BI: BoardBoundaryInteraction,
+{
     fn evaluate(self, state: T) -> T;
 }
 
 /// Provides traits for evaluating a given operation onto a mutable State type.
-pub trait EvaluateMut<State> {
+pub trait EvaluateMut<BI, State>
+where
+    BI: BoardBoundaryInteraction,
+{
     type Output;
 
     fn evaluate_mut(&mut self, operation: State) -> Self::Output;
@@ -143,9 +149,10 @@ impl From<ast::Agent> for AgentState {
     }
 }
 
-impl<M> Evaluate<AgentState> for M
+impl<BI, M> Evaluate<BI, AgentState> for M
 where
-    AgentState: EvaluateMut<M>,
+    BI: BoardBoundaryInteraction,
+    AgentState: EvaluateMut<BI, M>,
 {
     fn evaluate(self, mut state: AgentState) -> AgentState {
         state.evaluate_mut(self);
@@ -169,17 +176,19 @@ pub(crate) struct FaceCmd(pub ast::Direction);
 pub(crate) struct TurnCmd(pub i32);
 
 /// A marker trait used to flag traits that are used for implementing agent
-/// behavior when encountering a border boundary..
-pub trait BoardBoundaryInteraction {}
+/// behavior when encountering a border boundary.
+pub trait BoardBoundaryInteraction: Default {}
 
 /// ReflectOnOverflow is a marker trait used to denote that agents should
 /// reflect when encountering a board boundary.
+#[derive(Default)]
 pub struct ReflectOnOverflow;
 
 impl BoardBoundaryInteraction for ReflectOnOverflow {}
 
 /// WrapOnOverflow is a marker trait used to denote that agents should wrap
 /// when encountering a board boundary.
+#[derive(Default)]
 pub struct WrapOnOverflow;
 
 impl BoardBoundaryInteraction for WrapOnOverflow {}
@@ -198,29 +207,68 @@ pub(crate) struct GotoCmd(pub u32);
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct JumpTrueCmd(pub u32, pub Expression);
 
-impl EvaluateMut<ast::Command> for AgentState {
+impl EvaluateMut<WrapOnOverflow, ast::Command> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
     fn evaluate_mut(&mut self, operation: ast::Command) -> Self::Output {
         match operation {
-            ast::Command::SetVariable(id, expr) => self.evaluate_mut(SetVariableCmd(id, expr)),
-            ast::Command::Face(dir) => self.evaluate_mut(FaceCmd(dir)),
-            ast::Command::Turn(rotations) => self.evaluate_mut(TurnCmd(rotations)),
+            ast::Command::SetVariable(id, expr) => {
+                EvaluateMut::<WrapOnOverflow, _>::evaluate_mut(self, SetVariableCmd(id, expr))
+            }
+            ast::Command::Face(dir) => {
+                EvaluateMut::<WrapOnOverflow, _>::evaluate_mut(self, FaceCmd(dir))
+            }
+
+            ast::Command::Turn(rotations) => {
+                EvaluateMut::<WrapOnOverflow, _>::evaluate_mut(self, TurnCmd(rotations))
+            }
+
             ast::Command::Move(steps) => self.evaluate_mut(MoveCmd(WrapOnOverflow, steps)),
-            ast::Command::Goto(command) => self.evaluate_mut(GotoCmd(command)),
-            ast::Command::JumpTrue(next, expr) => self.evaluate_mut(JumpTrueCmd(next, expr)),
+            ast::Command::Goto(command) => {
+                EvaluateMut::<WrapOnOverflow, _>::evaluate_mut(self, GotoCmd(command))
+            }
+            ast::Command::JumpTrue(next, expr) => {
+                EvaluateMut::<WrapOnOverflow, _>::evaluate_mut(self, JumpTrueCmd(next, expr))
+            }
         }
     }
 }
 
-impl EvaluateMut<SetVariableCmd> for AgentState {
+impl EvaluateMut<ReflectOnOverflow, ast::Command> for AgentState {
+    type Output = Result<Vec<Coordinates>, String>;
+
+    fn evaluate_mut(&mut self, operation: ast::Command) -> Self::Output {
+        match operation {
+            ast::Command::SetVariable(id, expr) => {
+                EvaluateMut::<ReflectOnOverflow, _>::evaluate_mut(self, SetVariableCmd(id, expr))
+            }
+            ast::Command::Face(dir) => {
+                EvaluateMut::<ReflectOnOverflow, _>::evaluate_mut(self, FaceCmd(dir))
+            }
+
+            ast::Command::Turn(rotations) => {
+                EvaluateMut::<ReflectOnOverflow, _>::evaluate_mut(self, TurnCmd(rotations))
+            }
+
+            ast::Command::Move(steps) => self.evaluate_mut(MoveCmd(ReflectOnOverflow, steps)),
+            ast::Command::Goto(command) => {
+                EvaluateMut::<ReflectOnOverflow, _>::evaluate_mut(self, GotoCmd(command))
+            }
+            ast::Command::JumpTrue(next, expr) => {
+                EvaluateMut::<ReflectOnOverflow, _>::evaluate_mut(self, JumpTrueCmd(next, expr))
+            }
+        }
+    }
+}
+
+impl<BI: BoardBoundaryInteraction> EvaluateMut<BI, SetVariableCmd> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
     fn evaluate_mut(&mut self, operation: SetVariableCmd) -> Self::Output {
         use ast::Primitive;
 
         let SetVariableCmd(id, expr) = operation;
-        let value = self.evaluate_mut(expr)?;
+        let value = EvaluateMut::<BI, _>::evaluate_mut(self, expr)?;
 
         match id.as_str() {
             "x" => match value {
@@ -248,7 +296,7 @@ impl EvaluateMut<SetVariableCmd> for AgentState {
     }
 }
 
-impl EvaluateMut<FaceCmd> for AgentState {
+impl<BI: BoardBoundaryInteraction> EvaluateMut<BI, FaceCmd> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
     fn evaluate_mut(&mut self, operation: FaceCmd) -> Self::Output {
@@ -260,7 +308,7 @@ impl EvaluateMut<FaceCmd> for AgentState {
     }
 }
 
-impl EvaluateMut<TurnCmd> for AgentState {
+impl<BI: BoardBoundaryInteraction> EvaluateMut<BI, TurnCmd> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
     fn evaluate_mut(&mut self, operation: TurnCmd) -> Self::Output {
@@ -273,7 +321,7 @@ impl EvaluateMut<TurnCmd> for AgentState {
     }
 }
 
-impl EvaluateMut<MoveCmd<WrapOnOverflow>> for AgentState {
+impl EvaluateMut<WrapOnOverflow, MoveCmd<WrapOnOverflow>> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
     fn evaluate_mut(&mut self, operation: MoveCmd<WrapOnOverflow>) -> Self::Output {
@@ -316,7 +364,7 @@ impl EvaluateMut<MoveCmd<WrapOnOverflow>> for AgentState {
     }
 }
 
-impl EvaluateMut<MoveCmd<ReflectOnOverflow>> for AgentState {
+impl EvaluateMut<ReflectOnOverflow, MoveCmd<ReflectOnOverflow>> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
     fn evaluate_mut(&mut self, operation: MoveCmd<ReflectOnOverflow>) -> Self::Output {
@@ -392,7 +440,7 @@ impl EvaluateMut<MoveCmd<ReflectOnOverflow>> for AgentState {
     }
 }
 
-impl EvaluateMut<GotoCmd> for AgentState {
+impl<BI: BoardBoundaryInteraction> EvaluateMut<BI, GotoCmd> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
     fn evaluate_mut(&mut self, operation: GotoCmd) -> Self::Output {
@@ -406,14 +454,14 @@ impl EvaluateMut<GotoCmd> for AgentState {
     }
 }
 
-impl EvaluateMut<JumpTrueCmd> for AgentState {
+impl<BI: BoardBoundaryInteraction> EvaluateMut<BI, JumpTrueCmd> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
     fn evaluate_mut(&mut self, operation: JumpTrueCmd) -> Self::Output {
         use ast::Primitive;
 
         let JumpTrueCmd(next, condition) = operation;
-        let prim = self.evaluate_mut(condition)?;
+        let prim = EvaluateMut::<BI, _>::evaluate_mut(self, condition)?;
 
         match prim {
             pi @ Primitive::Integer(_) => Err(format!("condition is non-boolean: {:?}", &pi)),
@@ -426,7 +474,7 @@ impl EvaluateMut<JumpTrueCmd> for AgentState {
     }
 }
 
-impl EvaluateMut<ast::Expression> for AgentState {
+impl<BI: BoardBoundaryInteraction> EvaluateMut<BI, ast::Expression> for AgentState {
     type Output = Result<ast::Primitive, String>;
 
     fn evaluate_mut(&mut self, expr: ast::Expression) -> Self::Output {
@@ -440,14 +488,14 @@ impl EvaluateMut<ast::Expression> for AgentState {
             Div,
         }
 
-        fn evaluate_binary_op(
+        fn evaluate_binary_op<BI: BoardBoundaryInteraction>(
             agent: &mut AgentState,
             op: BinaryOp,
             lhs: Expression,
             rhs: Expression,
         ) -> Result<ast::Primitive, String> {
-            let l = agent.evaluate_mut(lhs)?;
-            let r = agent.evaluate_mut(rhs)?;
+            let l = EvaluateMut::<BI, _>::evaluate_mut(agent, lhs)?;
+            let r = EvaluateMut::<BI, _>::evaluate_mut(agent, rhs)?;
 
             match (l, r) {
                 (Primitive::Integer(l), Primitive::Integer(r)) => match op {
@@ -468,14 +516,15 @@ impl EvaluateMut<ast::Expression> for AgentState {
                 .copied()
                 .ok_or_else(|| format!("key [{}] undefined", &key)),
             Expression::Equals(lhs, rhs) => {
-                let l = self.evaluate_mut(*lhs)?;
-                let r = self.evaluate_mut(*rhs)?;
+                let l = EvaluateMut::<BI, _>::evaluate_mut(self, *lhs)?;
+                let r = EvaluateMut::<BI, _>::evaluate_mut(self, *rhs)?;
                 Ok(Primitive::Boolean(l == r))
             }
-            Expression::Add(lhs, rhs) => evaluate_binary_op(self, BinaryOp::Add, *lhs, *rhs),
-            Expression::Sub(lhs, rhs) => evaluate_binary_op(self, BinaryOp::Sub, *lhs, *rhs),
-            Expression::Mul(lhs, rhs) => evaluate_binary_op(self, BinaryOp::Mul, *lhs, *rhs),
-            Expression::Div(lhs, rhs) => evaluate_binary_op(self, BinaryOp::Div, *lhs, *rhs),
+            Expression::Add(lhs, rhs) => evaluate_binary_op::<BI>(self, BinaryOp::Add, *lhs, *rhs),
+
+            Expression::Sub(lhs, rhs) => evaluate_binary_op::<BI>(self, BinaryOp::Sub, *lhs, *rhs),
+            Expression::Mul(lhs, rhs) => evaluate_binary_op::<BI>(self, BinaryOp::Mul, *lhs, *rhs),
+            Expression::Div(lhs, rhs) => evaluate_binary_op::<BI>(self, BinaryOp::Div, *lhs, *rhs),
         }
     }
 }
@@ -519,7 +568,8 @@ pub fn tick_agent(agent_state: &mut AgentState) -> Vec<Coordinates> {
         .get(agent_state.pc as usize)
         .cloned()
         .unwrap();
-    agent_state.evaluate_mut(command).unwrap()
+
+    EvaluateMut::<WrapOnOverflow, _>::evaluate_mut(agent_state, command).unwrap()
 }
 
 pub fn tick_world(board: &mut Board) {
