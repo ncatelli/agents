@@ -13,17 +13,17 @@ mod tests;
 
 /// Provides traits for evaluating a type onto a state, returning the modified
 /// state.
-pub trait Evaluate<BI, T>
+pub trait Evaluate<BBI, T>
 where
-    BI: BoardBoundaryInteraction,
+    BBI: BoardBoundaryInteraction,
 {
     fn evaluate(self, state: T) -> T;
 }
 
 /// Provides traits for evaluating a given operation onto a mutable State type.
-pub trait EvaluateMut<BI, State>
+pub trait EvaluateMut<BBI, State>
 where
-    BI: BoardBoundaryInteraction,
+    BBI: BoardBoundaryInteraction,
 {
     type Output;
 
@@ -149,10 +149,10 @@ impl From<ast::Agent> for AgentState {
     }
 }
 
-impl<BI, M> Evaluate<BI, AgentState> for M
+impl<BBI, M> Evaluate<BBI, AgentState> for M
 where
-    BI: BoardBoundaryInteraction,
-    AgentState: EvaluateMut<BI, M>,
+    BBI: BoardBoundaryInteraction,
+    AgentState: EvaluateMut<BBI, M>,
 {
     fn evaluate(self, mut state: AgentState) -> AgentState {
         state.evaluate_mut(self);
@@ -196,7 +196,7 @@ impl BoardBoundaryInteraction for WrapOnOverflow {}
 /// Move specifies the steps that an agent will move in the direction it is
 /// facing.
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct MoveCmd<BI: BoardBoundaryInteraction>(pub BI, pub u32);
+pub(crate) struct MoveCmd<BBI: BoardBoundaryInteraction>(pub BBI, pub u32);
 
 /// Goto jumps to the enclosed offset in an agents command list.
 #[derive(Debug, Clone, PartialEq)]
@@ -261,14 +261,14 @@ impl EvaluateMut<ReflectOnOverflow, ast::Command> for AgentState {
     }
 }
 
-impl<BI: BoardBoundaryInteraction> EvaluateMut<BI, SetVariableCmd> for AgentState {
+impl<BBI: BoardBoundaryInteraction> EvaluateMut<BBI, SetVariableCmd> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
     fn evaluate_mut(&mut self, operation: SetVariableCmd) -> Self::Output {
         use ast::Primitive;
 
         let SetVariableCmd(id, expr) = operation;
-        let value = EvaluateMut::<BI, _>::evaluate_mut(self, expr)?;
+        let value = EvaluateMut::<BBI, _>::evaluate_mut(self, expr)?;
 
         match id.as_str() {
             "x" => match value {
@@ -296,7 +296,7 @@ impl<BI: BoardBoundaryInteraction> EvaluateMut<BI, SetVariableCmd> for AgentStat
     }
 }
 
-impl<BI: BoardBoundaryInteraction> EvaluateMut<BI, FaceCmd> for AgentState {
+impl<BBI: BoardBoundaryInteraction> EvaluateMut<BBI, FaceCmd> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
     fn evaluate_mut(&mut self, operation: FaceCmd) -> Self::Output {
@@ -308,7 +308,7 @@ impl<BI: BoardBoundaryInteraction> EvaluateMut<BI, FaceCmd> for AgentState {
     }
 }
 
-impl<BI: BoardBoundaryInteraction> EvaluateMut<BI, TurnCmd> for AgentState {
+impl<BBI: BoardBoundaryInteraction> EvaluateMut<BBI, TurnCmd> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
     fn evaluate_mut(&mut self, operation: TurnCmd) -> Self::Output {
@@ -440,7 +440,7 @@ impl EvaluateMut<ReflectOnOverflow, MoveCmd<ReflectOnOverflow>> for AgentState {
     }
 }
 
-impl<BI: BoardBoundaryInteraction> EvaluateMut<BI, GotoCmd> for AgentState {
+impl<BBI: BoardBoundaryInteraction> EvaluateMut<BBI, GotoCmd> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
     fn evaluate_mut(&mut self, operation: GotoCmd) -> Self::Output {
@@ -454,14 +454,14 @@ impl<BI: BoardBoundaryInteraction> EvaluateMut<BI, GotoCmd> for AgentState {
     }
 }
 
-impl<BI: BoardBoundaryInteraction> EvaluateMut<BI, JumpTrueCmd> for AgentState {
+impl<BBI: BoardBoundaryInteraction> EvaluateMut<BBI, JumpTrueCmd> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
     fn evaluate_mut(&mut self, operation: JumpTrueCmd) -> Self::Output {
         use ast::Primitive;
 
         let JumpTrueCmd(next, condition) = operation;
-        let prim = EvaluateMut::<BI, _>::evaluate_mut(self, condition)?;
+        let prim = EvaluateMut::<BBI, _>::evaluate_mut(self, condition)?;
 
         match prim {
             pi @ Primitive::Integer(_) => Err(format!("condition is non-boolean: {:?}", &pi)),
@@ -474,7 +474,7 @@ impl<BI: BoardBoundaryInteraction> EvaluateMut<BI, JumpTrueCmd> for AgentState {
     }
 }
 
-impl<BI: BoardBoundaryInteraction> EvaluateMut<BI, ast::Expression> for AgentState {
+impl<BBI: BoardBoundaryInteraction> EvaluateMut<BBI, ast::Expression> for AgentState {
     type Output = Result<ast::Primitive, String>;
 
     fn evaluate_mut(&mut self, expr: ast::Expression) -> Self::Output {
@@ -488,14 +488,14 @@ impl<BI: BoardBoundaryInteraction> EvaluateMut<BI, ast::Expression> for AgentSta
             Div,
         }
 
-        fn evaluate_binary_op<BI: BoardBoundaryInteraction>(
+        fn evaluate_binary_op<BBI: BoardBoundaryInteraction>(
             agent: &mut AgentState,
             op: BinaryOp,
             lhs: Expression,
             rhs: Expression,
         ) -> Result<ast::Primitive, String> {
-            let l = EvaluateMut::<BI, _>::evaluate_mut(agent, lhs)?;
-            let r = EvaluateMut::<BI, _>::evaluate_mut(agent, rhs)?;
+            let l = EvaluateMut::<BBI, _>::evaluate_mut(agent, lhs)?;
+            let r = EvaluateMut::<BBI, _>::evaluate_mut(agent, rhs)?;
 
             match (l, r) {
                 (Primitive::Integer(l), Primitive::Integer(r)) => match op {
@@ -516,15 +516,15 @@ impl<BI: BoardBoundaryInteraction> EvaluateMut<BI, ast::Expression> for AgentSta
                 .copied()
                 .ok_or_else(|| format!("key [{}] undefined", &key)),
             Expression::Equals(lhs, rhs) => {
-                let l = EvaluateMut::<BI, _>::evaluate_mut(self, *lhs)?;
-                let r = EvaluateMut::<BI, _>::evaluate_mut(self, *rhs)?;
+                let l = EvaluateMut::<BBI, _>::evaluate_mut(self, *lhs)?;
+                let r = EvaluateMut::<BBI, _>::evaluate_mut(self, *rhs)?;
                 Ok(Primitive::Boolean(l == r))
             }
-            Expression::Add(lhs, rhs) => evaluate_binary_op::<BI>(self, BinaryOp::Add, *lhs, *rhs),
+            Expression::Add(lhs, rhs) => evaluate_binary_op::<BBI>(self, BinaryOp::Add, *lhs, *rhs),
 
-            Expression::Sub(lhs, rhs) => evaluate_binary_op::<BI>(self, BinaryOp::Sub, *lhs, *rhs),
-            Expression::Mul(lhs, rhs) => evaluate_binary_op::<BI>(self, BinaryOp::Mul, *lhs, *rhs),
-            Expression::Div(lhs, rhs) => evaluate_binary_op::<BI>(self, BinaryOp::Div, *lhs, *rhs),
+            Expression::Sub(lhs, rhs) => evaluate_binary_op::<BBI>(self, BinaryOp::Sub, *lhs, *rhs),
+            Expression::Mul(lhs, rhs) => evaluate_binary_op::<BBI>(self, BinaryOp::Mul, *lhs, *rhs),
+            Expression::Div(lhs, rhs) => evaluate_binary_op::<BBI>(self, BinaryOp::Div, *lhs, *rhs),
         }
     }
 }
