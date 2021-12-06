@@ -151,20 +151,26 @@ pub struct FaceCmd(pub ast::Direction);
 #[derive(Debug, Clone, PartialEq)]
 pub struct TurnCmd(pub i32);
 
-pub trait BoardInteraction {}
+/// A marker trait used to flag traits that are used for implementing agent
+/// behavior when encountering a border boundary..
+pub trait BoardBoundaryInteraction {}
 
+/// ReflectOnOverflow is a marker trait used to denote that agents should
+/// reflect when encountering a board boundary.
 pub struct ReflectOnOverflow;
 
-impl BoardInteraction for ReflectOnOverflow {}
+impl BoardBoundaryInteraction for ReflectOnOverflow {}
 
+/// WrapOnOverflow is a marker trait used to denote that agents should wrap
+/// when encountering a board boundary.
 pub struct WrapOnOverflow;
 
-impl BoardInteraction for WrapOnOverflow {}
+impl BoardBoundaryInteraction for WrapOnOverflow {}
 
 /// Move specifies the steps that an agent will move in the direction it is
 /// facing.
 #[derive(Debug, Clone, PartialEq)]
-pub struct MoveCmd<BI: BoardInteraction>(pub BI, pub u32);
+pub struct MoveCmd<BI: BoardBoundaryInteraction>(pub BI, pub u32);
 
 /// Goto jumps to the enclosed offset in an agents command list.
 #[derive(Debug, Clone, PartialEq)]
