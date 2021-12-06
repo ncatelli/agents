@@ -63,36 +63,34 @@ function loop() {
 }
 
 document.getElementById('runcode').addEventListener('click', () => {
-  console.log('run')
+  wasm.run(editor.getValue());
 });
 
 loop();
 
-document.getElementById('editor').innerHTML = `
-agent red_agent:
-        set color = 255
-        set x = 0
-        set y = 0
-        set direction = 0
-        set a = 0
-        loop:
-            face NW
-            move 10
-            turn -4
-            goto loop
-            set a = 5
-            jump to exit if a is 1
-        exit:
-
+document.getElementById('editor').innerHTML = `agent red_agent:
+    set color = 255
+    set x = 20
+    set y = 20
+    set direction = 0
+    set a = 0
+    loop:
+        face NW
+        move 1
+        turn -4
+        goto loop
+        set a = 5
+        jump to exit if a is 1
+    exit:
 agent blue_agent:
     set color = 255
-    set x = 0
-    set y = 0
+    set x = 20
+    set y = 20
     set direction = 0
     set a = 0
     loop:
         face NE
-        move 20
+        move 2
         turn -30
         goto loop
         set b = 5

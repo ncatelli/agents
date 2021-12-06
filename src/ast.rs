@@ -23,7 +23,7 @@ impl From<Program> for Vec<Agent> {
 /// An agent is represented by a list of commands.
 #[derive(Debug, PartialEq)]
 pub struct Agent {
-    commands: Vec<Command>,
+    pub commands: Vec<Command>,
 }
 
 impl Agent {
