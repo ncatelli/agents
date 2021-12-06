@@ -74,10 +74,10 @@ fn should_generate_expected_new_coordinates_for_move_when_reflected() {
 
     generate_move_command_assertion!(
         ReflectOnOverflow, 6 to Direction::N => 0, 6 with Direction::S,
-        ReflectOnOverflow, 51 to Direction::S => 0, 49 with Direction::N,
+        ReflectOnOverflow, 51 to Direction::S => 0, 47 with Direction::N,
         ReflectOnOverflow, 6 to Direction::W => 6, 0 with Direction::E,
-        ReflectOnOverflow, 51 to Direction::E => 49, 0 with Direction::W,
+        ReflectOnOverflow, 51 to Direction::E => 47, 0 with Direction::W,
         ReflectOnOverflow, 6 to Direction::NW => 6, 6 with Direction::SE,
-        ReflectOnOverflow, 51 to Direction::SE => 49, 49 with Direction::NW,
+        ReflectOnOverflow, 51 to Direction::SE => 47, 47 with Direction::NW,
     );
 }
