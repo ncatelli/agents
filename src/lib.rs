@@ -57,6 +57,7 @@ impl Coordinates {
     }
 }
 
+/// The runtime representation of a parsed agent.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AgentState {
     vars: HashMap<String, ast::Primitive>,
@@ -87,26 +88,36 @@ impl AgentState {
         }
     }
 
+    /// Sets the `commands` field, consuming and returning the agent-state
+    /// modified in place.
     pub fn with_commands(mut self, commands: Vec<ast::Command>) -> Self {
         self.commands = commands;
         self
     }
 
+    /// Sets the `pc` field, consuming and returning the agent-state modified
+    /// in place.
     pub fn with_pc(mut self, pc: u32) -> Self {
         self.pc = pc;
         self
     }
 
+    /// Sets the `directions` field, consuming and returning the agent-state
+    /// modified in place.
     pub fn with_direction(mut self, direction: ast::Direction) -> Self {
         self.direction = direction;
         self
     }
 
+    /// Sets the `color` field, consuming and returning the agent-state modified
+    /// in place.
     pub fn with_color(mut self, color: u32) -> Self {
         self.color = color;
         self
     }
 
+    /// Sets the `coordinates` field, consuming and returning the agent-state
+    /// modified in place.
     pub fn with_coordinates(mut self, coordinates: Coordinates) -> Self {
         self.coords = coordinates;
         self
@@ -123,6 +134,12 @@ impl Default for AgentState {
             direction: ast::Direction::S,
             color: Default::default(),
         }
+    }
+}
+
+impl From<ast::Agent> for AgentState {
+    fn from(agent: ast::Agent) -> Self {
+        AgentState::default().with_commands(agent.commands)
     }
 }
 
@@ -527,8 +544,10 @@ lazy_static! {
 #[wasm_bindgen]
 pub fn run(source: &str) {
     let program = parser::parse(source).unwrap();
-    for agent in <Vec<ast::Agent>>::from(program).into_iter() {
-        let new_state = AgentState::default().with_commands(agent.commands);
+    let agents: Vec<ast::Agent> = program.into();
+
+    for agent in agents.into_iter() {
+        let new_state = AgentState::from(agent);
         BOARD.lock().unwrap().agents.push(new_state);
     }
 }
