@@ -136,28 +136,67 @@ where
     }
 }
 
+/// Sets a variable identified by the string to the primitive evaluated to by
+/// the associated Expression on an associated agent..
+#[derive(Debug, Clone, PartialEq)]
+pub struct SetVariableCmd(pub String, pub Expression);
+
+/// Defines the direction an agent should face.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FaceCmd(pub ast::Direction);
+
+/// Turns by a number of rotations where a positive number represents a
+/// clockwise rotation and a negavite represents a counter-clockwise
+/// rotation.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TurnCmd(pub i32);
+
+pub trait BoardInteraction {}
+
+pub struct ReflectOnOverflow;
+
+impl BoardInteraction for ReflectOnOverflow {}
+
+pub struct WrapOnOverflow;
+
+impl BoardInteraction for WrapOnOverflow {}
+
+/// Move specifies the steps that an agent will move in the direction it is
+/// facing.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MoveCmd<BI: BoardInteraction>(pub u32, pub BI);
+
+/// Goto jumps to the enclosed offset in an agents command list.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GotoCmd(pub u32);
+
+/// Like Goto, JumpTrue jumps to the enclosed offset if the passed conditional
+/// expression evaluates to true.
+#[derive(Debug, Clone, PartialEq)]
+pub struct JumpTrueCmd(pub u32, pub Expression);
+
 impl EvaluateMut<ast::Command> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
     fn evaluate_mut(&mut self, operation: ast::Command) -> Self::Output {
         match operation {
-            ast::Command::SetVariable(id, expr) => self.evaluate_mut(ast::SetVariableCmd(id, expr)),
-            ast::Command::Face(dir) => self.evaluate_mut(ast::FaceCmd(dir)),
-            ast::Command::Turn(rotations) => self.evaluate_mut(ast::TurnCmd(rotations)),
-            ast::Command::Move(steps) => self.evaluate_mut(ast::MoveCmd(steps)),
-            ast::Command::Goto(command) => self.evaluate_mut(ast::GotoCmd(command)),
-            ast::Command::JumpTrue(next, expr) => self.evaluate_mut(ast::JumpTrueCmd(next, expr)),
+            ast::Command::SetVariable(id, expr) => self.evaluate_mut(SetVariableCmd(id, expr)),
+            ast::Command::Face(dir) => self.evaluate_mut(FaceCmd(dir)),
+            ast::Command::Turn(rotations) => self.evaluate_mut(TurnCmd(rotations)),
+            ast::Command::Move(steps) => self.evaluate_mut(MoveCmd(steps, WrapOnOverflow)),
+            ast::Command::Goto(command) => self.evaluate_mut(GotoCmd(command)),
+            ast::Command::JumpTrue(next, expr) => self.evaluate_mut(JumpTrueCmd(next, expr)),
         }
     }
 }
 
-impl EvaluateMut<ast::SetVariableCmd> for AgentState {
+impl EvaluateMut<SetVariableCmd> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
-    fn evaluate_mut(&mut self, operation: ast::SetVariableCmd) -> Self::Output {
+    fn evaluate_mut(&mut self, operation: SetVariableCmd) -> Self::Output {
         use ast::Primitive;
 
-        let ast::SetVariableCmd(id, expr) = operation;
+        let SetVariableCmd(id, expr) = operation;
         let value = self.evaluate_mut(expr)?;
 
         match id.as_str() {
@@ -186,11 +225,11 @@ impl EvaluateMut<ast::SetVariableCmd> for AgentState {
     }
 }
 
-impl EvaluateMut<ast::FaceCmd> for AgentState {
+impl EvaluateMut<FaceCmd> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
-    fn evaluate_mut(&mut self, operation: ast::FaceCmd) -> Self::Output {
-        let ast::FaceCmd(new_direction) = operation;
+    fn evaluate_mut(&mut self, operation: FaceCmd) -> Self::Output {
+        let FaceCmd(new_direction) = operation;
 
         self.direction = new_direction;
         self.pc += 1;
@@ -198,11 +237,11 @@ impl EvaluateMut<ast::FaceCmd> for AgentState {
     }
 }
 
-impl EvaluateMut<ast::TurnCmd> for AgentState {
+impl EvaluateMut<TurnCmd> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
-    fn evaluate_mut(&mut self, operation: ast::TurnCmd) -> Self::Output {
-        let ast::TurnCmd(rotations) = operation;
+    fn evaluate_mut(&mut self, operation: TurnCmd) -> Self::Output {
+        let TurnCmd(rotations) = operation;
 
         let original_direction = self.direction as i32;
         self.direction = ast::Direction::from(original_direction + rotations);
@@ -211,17 +250,40 @@ impl EvaluateMut<ast::TurnCmd> for AgentState {
     }
 }
 
-impl EvaluateMut<ast::MoveCmd> for AgentState {
+impl EvaluateMut<MoveCmd<WrapOnOverflow>> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
-    fn evaluate_mut(&mut self, operation: ast::MoveCmd) -> Self::Output {
-        let ast::MoveCmd(steps) = operation;
+    fn evaluate_mut(&mut self, operation: MoveCmd<WrapOnOverflow>) -> Self::Output {
+        let MoveCmd::<WrapOnOverflow>(steps, _) = operation;
         let orientation = self.direction;
         let origin = self.coords;
 
         let touched_cells: Vec<Coordinates> = (0..=steps)
             .into_iter()
-            .map(|offset| move_in_direction(offset, orientation, origin))
+            .map(|offset| {
+                const BW: i32 = BOARD_WIDTH as i32;
+                const BH: i32 = BOARD_HEIGHT as i32;
+
+                let Coordinates(x_u32, y_u32) = origin;
+                let steps = offset as i32;
+                let (x, y) = ((x_u32 as i32), (y_u32 as i32));
+
+                let (offset_x, offset_y) = match orientation {
+                    ast::Direction::N => (x, y - steps),
+                    ast::Direction::NE => (x + steps, y - steps),
+                    ast::Direction::NW => (x - steps, y - steps),
+                    ast::Direction::E => (x + steps, y),
+                    ast::Direction::SE => (x - steps, y + steps),
+                    ast::Direction::S => (x, y + steps),
+                    ast::Direction::SW => (x - steps, y + steps),
+                    ast::Direction::W => (x - steps, y),
+                };
+
+                let (adjusted_x, adjusted_y) =
+                    ((offset_x % BW + BW) % BW, (offset_y % BH + BH) % BH);
+
+                Coordinates(adjusted_x as u32, adjusted_y as u32)
+            })
             .collect();
         let end = touched_cells.last().copied().unwrap_or(origin);
 
@@ -231,36 +293,53 @@ impl EvaluateMut<ast::MoveCmd> for AgentState {
     }
 }
 
-/// Updates coordinates to represent a move of n steps in a given direction
-fn move_in_direction(steps: u32, direction: ast::Direction, origin: Coordinates) -> Coordinates {
-    let Coordinates(x_u32, y_u32) = origin;
-    let steps = steps as i32;
-    let (x, y) = ((x_u32 as i32), (y_u32 as i32));
-
-    let (offset_x, offset_y) = match direction {
-        ast::Direction::N => (x, y - steps),
-        ast::Direction::NE => (x + steps, y - steps),
-        ast::Direction::NW => (x - steps, y - steps),
-        ast::Direction::E => (x + steps, y),
-        ast::Direction::SE => (x - steps, y + steps),
-        ast::Direction::S => (x, y + steps),
-        ast::Direction::SW => (x - steps, y + steps),
-        ast::Direction::W => (x - steps, y),
-    };
-
-    const BW: i32 = BOARD_WIDTH as i32;
-    const BH: i32 = BOARD_HEIGHT as i32;
-
-    let (adjusted_x, adjusted_y) = ((offset_x % BW + BW) % BW, (offset_y % BH + BH) % BH);
-
-    Coordinates(adjusted_x as u32, adjusted_y as u32)
-}
-
-impl EvaluateMut<ast::GotoCmd> for AgentState {
+impl EvaluateMut<MoveCmd<ReflectOnOverflow>> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
-    fn evaluate_mut(&mut self, operation: ast::GotoCmd) -> Self::Output {
-        let ast::GotoCmd(command) = operation;
+    fn evaluate_mut(&mut self, operation: MoveCmd<ReflectOnOverflow>) -> Self::Output {
+        let MoveCmd::<ReflectOnOverflow>(steps, _) = operation;
+        let orientation = self.direction;
+        let origin = self.coords;
+
+        let touched_cells: Vec<Coordinates> = (0..=steps)
+            .into_iter()
+            .map(|offset| {
+                const BW: i32 = BOARD_WIDTH as i32;
+                const BH: i32 = BOARD_HEIGHT as i32;
+
+                let Coordinates(x_u32, y_u32) = origin;
+                let steps = offset as i32;
+                let (x, y) = ((x_u32 as i32), (y_u32 as i32));
+
+                let (offset_x, offset_y) = match orientation {
+                    ast::Direction::N => (x, y - steps),
+                    ast::Direction::NE => (x + steps, y - steps),
+                    ast::Direction::NW => (x - steps, y - steps),
+                    ast::Direction::E => (x + steps, y),
+                    ast::Direction::SE => (x - steps, y + steps),
+                    ast::Direction::S => (x, y + steps),
+                    ast::Direction::SW => (x - steps, y + steps),
+                    ast::Direction::W => (x - steps, y),
+                };
+
+                let (adjusted_x, adjusted_y) = ((offset_x % BW + BW), (offset_y % BH + BH));
+
+                Coordinates(adjusted_x as u32, adjusted_y as u32)
+            })
+            .collect();
+        let end = touched_cells.last().copied().unwrap_or(origin);
+
+        self.coords = Coordinates(end.x(), end.y());
+        self.pc += 1;
+        Ok(touched_cells)
+    }
+}
+
+impl EvaluateMut<GotoCmd> for AgentState {
+    type Output = Result<Vec<Coordinates>, String>;
+
+    fn evaluate_mut(&mut self, operation: GotoCmd) -> Self::Output {
+        let GotoCmd(command) = operation;
         if (command as usize) < self.commands.len() {
             self.pc = command;
             Ok(vec![])
@@ -270,13 +349,13 @@ impl EvaluateMut<ast::GotoCmd> for AgentState {
     }
 }
 
-impl EvaluateMut<ast::JumpTrueCmd> for AgentState {
+impl EvaluateMut<JumpTrueCmd> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
-    fn evaluate_mut(&mut self, operation: ast::JumpTrueCmd) -> Self::Output {
+    fn evaluate_mut(&mut self, operation: JumpTrueCmd) -> Self::Output {
         use ast::Primitive;
 
-        let ast::JumpTrueCmd(next, condition) = operation;
+        let JumpTrueCmd(next, condition) = operation;
         let prim = self.evaluate_mut(condition)?;
 
         match prim {
