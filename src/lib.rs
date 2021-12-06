@@ -324,8 +324,8 @@ impl EvaluateMut<MoveCmd<ReflectOnOverflow>> for AgentState {
 
         let mut touched_cells = vec![];
 
-        let board_width = BOARD_WIDTH;
-        let board_height = BOARD_HEIGHT;
+        let board_width = BOARD_WIDTH - 1;
+        let board_height = BOARD_HEIGHT - 1;
 
         for _ in 0..steps {
             let Coordinates(x, y) = self.coords;
