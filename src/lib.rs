@@ -388,10 +388,11 @@ pub fn tick_world(board: &mut Board) {
     }
 }
 
+pub const BOARD_WIDTH: u32 = 50;
+pub const BOARD_HEIGHT: u32 = 50;
+
 lazy_static! {
-    static ref BOARD: Mutex<Board> = {
-        Mutex::new(Board::new(50, 50))
-    };
+    static ref BOARD: Mutex<Board> = Mutex::new(Board::new(BOARD_WIDTH, BOARD_HEIGHT));
 }
 
 #[wasm_bindgen]
@@ -409,7 +410,6 @@ pub fn tick() -> Vec<u32> {
     get_board_state(&BOARD.lock().unwrap())
 }
 
-// call from js
 pub fn get_board_state(board: &Board) -> Vec<u32> {
     board.cells.clone().into_iter().map(|c| c.color).collect()
 }
