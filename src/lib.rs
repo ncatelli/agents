@@ -164,7 +164,7 @@ impl BoardInteraction for WrapOnOverflow {}
 /// Move specifies the steps that an agent will move in the direction it is
 /// facing.
 #[derive(Debug, Clone, PartialEq)]
-pub struct MoveCmd<BI: BoardInteraction>(pub u32, pub BI);
+pub struct MoveCmd<BI: BoardInteraction>(pub BI, pub u32);
 
 /// Goto jumps to the enclosed offset in an agents command list.
 #[derive(Debug, Clone, PartialEq)]
@@ -183,7 +183,7 @@ impl EvaluateMut<ast::Command> for AgentState {
             ast::Command::SetVariable(id, expr) => self.evaluate_mut(SetVariableCmd(id, expr)),
             ast::Command::Face(dir) => self.evaluate_mut(FaceCmd(dir)),
             ast::Command::Turn(rotations) => self.evaluate_mut(TurnCmd(rotations)),
-            ast::Command::Move(steps) => self.evaluate_mut(MoveCmd(steps, WrapOnOverflow)),
+            ast::Command::Move(steps) => self.evaluate_mut(MoveCmd(WrapOnOverflow, steps)),
             ast::Command::Goto(command) => self.evaluate_mut(GotoCmd(command)),
             ast::Command::JumpTrue(next, expr) => self.evaluate_mut(JumpTrueCmd(next, expr)),
         }
@@ -254,7 +254,7 @@ impl EvaluateMut<MoveCmd<WrapOnOverflow>> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
     fn evaluate_mut(&mut self, operation: MoveCmd<WrapOnOverflow>) -> Self::Output {
-        let MoveCmd::<WrapOnOverflow>(steps, _) = operation;
+        let MoveCmd::<WrapOnOverflow>(_, steps) = operation;
         let orientation = self.direction;
         let origin = self.coords;
 
@@ -297,7 +297,7 @@ impl EvaluateMut<MoveCmd<ReflectOnOverflow>> for AgentState {
     type Output = Result<Vec<Coordinates>, String>;
 
     fn evaluate_mut(&mut self, operation: MoveCmd<ReflectOnOverflow>) -> Self::Output {
-        let MoveCmd::<ReflectOnOverflow>(steps, _) = operation;
+        let MoveCmd::<ReflectOnOverflow>(_, steps) = operation;
         let orientation = self.direction;
         let origin = self.coords;
 
