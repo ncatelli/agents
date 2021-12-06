@@ -537,6 +537,16 @@ pub fn tick_world(board: &mut Board) {
 pub const BOARD_WIDTH: u32 = 50;
 pub const BOARD_HEIGHT: u32 = 50;
 
+#[wasm_bindgen]
+pub fn board_width() -> u32 {
+    BOARD_WIDTH
+}
+
+#[wasm_bindgen]
+pub fn board_height() -> u32 {
+    BOARD_HEIGHT
+}
+
 lazy_static! {
     static ref BOARD: Mutex<Board> = Mutex::new(Board::new(BOARD_WIDTH, BOARD_HEIGHT));
 }
