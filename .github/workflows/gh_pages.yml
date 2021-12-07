@@ -34,8 +34,10 @@ jobs:
         run: wasm-pack build --release
 
       - name: Build site
-        run: npm run build
         working-directory: ./www
+        run: |
+        npm install
+        npm run build
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
