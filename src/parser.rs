@@ -157,7 +157,7 @@ fn set_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedComma
         parcel::join(
             identifier(),
             parcel::right(parcel::join(
-                whitespace_wrapped(expect_character('=')),
+                non_newline_whitespace_wrapped(expect_character('=')),
                 expression(),
             )),
         ),
@@ -171,11 +171,11 @@ fn jump_true_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], Parse
         parcel::join(
             identifier(),
             parcel::right(parcel::join(
-                whitespace_wrapped(expect_str("if")),
+                non_newline_whitespace_wrapped(expect_str("if")),
                 parcel::join(
                     expression(),
                     parcel::right(parcel::join(
-                        whitespace_wrapped(expect_str("is")),
+                        non_newline_whitespace_wrapped(expect_str("is")),
                         expression(),
                     )),
                 ),
@@ -400,17 +400,6 @@ fn boolean<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], bool> {
     expect_str("true")
         .map(|_| true)
         .or(|| expect_str("false").map(|_| false))
-}
-
-fn whitespace_wrapped<'a, P, B>(parser: P) -> impl Parser<'a, &'a [(usize, char)], B>
-where
-    B: 'a,
-    P: Parser<'a, &'a [(usize, char)], B> + 'a,
-{
-    parcel::right(parcel::join(
-        parcel::zero_or_more(whitespace()),
-        parcel::left(parcel::join(parser, parcel::zero_or_more(whitespace()))),
-    ))
 }
 
 fn non_newline_whitespace_wrapped<'a, P, B>(parser: P) -> impl Parser<'a, &'a [(usize, char)], B>
