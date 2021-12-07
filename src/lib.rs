@@ -128,6 +128,13 @@ impl AgentState {
         self.coords = coordinates;
         self
     }
+
+    /// Adds a variable mapping, consuming and returning the agent-state
+    /// modified in place.
+    pub fn with_variable(mut self, key: &str, value: ast::Primitive) -> Self {
+        self.vars.insert(key.to_string(), value);
+        self
+    }
 }
 
 impl Default for AgentState {
@@ -465,7 +472,10 @@ impl<BBI: BoardBoundaryInteraction> EvaluateMut<BBI, JumpTrueCmd> for AgentState
 
         match prim {
             pi @ Primitive::Integer(_) => Err(format!("condition is non-boolean: {:?}", &pi)),
-            Primitive::Boolean(false) => todo!(),
+            Primitive::Boolean(false) => {
+                self.pc += 1;
+                Ok(vec![])
+            }
             Primitive::Boolean(true) => {
                 self.pc = next;
                 Ok(vec![])
@@ -561,15 +571,14 @@ impl Board {
 }
 
 pub fn tick_agent(agent_state: &mut AgentState) -> Vec<Coordinates> {
-    // TODO: implement interpreter here
-    // TODO: change pc here
-    let command = agent_state
+    agent_state
         .commands
         .get(agent_state.pc as usize)
         .cloned()
-        .unwrap();
-
-    EvaluateMut::<ReflectOnOverflow, _>::evaluate_mut(agent_state, command).unwrap()
+        .and_then(|command| {
+            EvaluateMut::<ReflectOnOverflow, _>::evaluate_mut(agent_state, command).ok()
+        })
+        .unwrap_or_else(Vec::new)
 }
 
 pub fn tick_world(board: &mut Board) {

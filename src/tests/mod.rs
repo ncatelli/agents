@@ -81,3 +81,88 @@ fn should_generate_expected_new_coordinates_for_move_when_reflected() {
         ReflectOnOverflow, 100 to Direction::SE => 98, 98 with Direction::NW,
     );
 }
+
+#[test]
+fn should_allow_expressions_in_assignment() {
+    use crate::ast::{Command, Expression, Primitive};
+    use crate::SetVariableCmd;
+
+    // literals
+    let var_name = "test";
+    let literal_expr = Expression::Literal(Primitive::Integer(5));
+    let cmd = Command::SetVariable(var_name.to_string(), literal_expr.clone());
+    assert_eq!(
+        AgentState::default()
+            .with_commands(vec![cmd.clone()])
+            .with_pc(1)
+            .with_variable(var_name, Primitive::Integer(5)),
+        Evaluate::<crate::WrapOnOverflow, _>::evaluate(
+            SetVariableCmd(var_name.to_string(), literal_expr),
+            AgentState::default().with_commands(vec![cmd]),
+        )
+    );
+
+    // arithmetic expressions
+    let arithmetic_expr = Expression::Add(
+        Box::new(Expression::Literal(Primitive::Integer(5))),
+        Box::new(Expression::Literal(Primitive::Integer(4))),
+    );
+    let cmd = Command::SetVariable(var_name.to_string(), arithmetic_expr.clone());
+    assert_eq!(
+        AgentState::default()
+            .with_commands(vec![cmd.clone()])
+            .with_pc(1)
+            .with_variable(var_name, Primitive::Integer(9)),
+        Evaluate::<crate::WrapOnOverflow, _>::evaluate(
+            SetVariableCmd(var_name.to_string(), arithmetic_expr,),
+            AgentState::default().with_commands(vec![cmd]),
+        )
+    );
+
+    // assignment expressions
+    let assignment_expr = Expression::Add(
+        Box::new(Expression::GetVariable(var_name.to_string())),
+        Box::new(Expression::Literal(Primitive::Integer(5))),
+    );
+
+    let cmd = Command::SetVariable(var_name.to_string(), assignment_expr.clone());
+    assert_eq!(
+        AgentState::default()
+            .with_commands(vec![cmd.clone()])
+            .with_pc(1)
+            .with_variable(var_name, Primitive::Integer(9)),
+        Evaluate::<crate::WrapOnOverflow, _>::evaluate(
+            SetVariableCmd(var_name.to_string(), assignment_expr,),
+            AgentState::default()
+                .with_commands(vec![cmd])
+                .with_variable(var_name, Primitive::Integer(4)),
+        )
+    )
+}
+
+#[test]
+fn should_jump_expressions_in_assignment() {
+    use crate::ast::{Command, Expression, Primitive};
+
+    let var_name = "test";
+
+    let cmd = Command::JumpTrue(
+        5,
+        Expression::Equals(
+            Box::new(Expression::GetVariable(var_name.to_string())),
+            Box::new(Expression::Literal(Primitive::Integer(1))),
+        ),
+    );
+    assert_eq!(
+        AgentState::default()
+            .with_commands(vec![cmd.clone()])
+            .with_pc(5)
+            .with_variable("test", Primitive::Integer(1)),
+        Evaluate::<crate::WrapOnOverflow, _>::evaluate(
+            cmd.clone(),
+            AgentState::default()
+                .with_commands(vec![cmd])
+                .with_variable("test", Primitive::Integer(1)),
+        )
+    )
+}

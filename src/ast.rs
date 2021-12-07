@@ -21,7 +21,7 @@ impl From<Program> for Vec<Agent> {
 }
 
 /// An agent is represented by a list of commands.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Agent {
     pub commands: Vec<Command>,
 }

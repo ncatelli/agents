@@ -72,9 +72,16 @@ document.getElementById('editor').innerHTML = `agent red_agent:
     set color = 16711680
     set x = 40
     set y = 40
+    set acc = 1
     face NW
     loop:
         move 1
+        jump to spin if acc is 4
+        set acc = acc + 1
+        goto loop
+    spin:
+        turn 1
+        set acc = 1
         goto loop
 agent blue_agent:
     set color = 255
