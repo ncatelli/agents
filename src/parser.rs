@@ -49,21 +49,23 @@ pub fn parse(source: &str) -> Result<ast::Program, ParseErr> {
 fn agent<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Agent> {
     use std::collections::HashMap;
     move |input: &'a [(usize, char)]| {
-        let (span, remainder, command_or_labels) = expect_str("agent ")
-            .and_then(|_| parcel::join(label(), parcel::zero_or_more(command_or_label())))
-            .parse(input)
-            .map_err(ParseErr::Unspecified)
-            .and_then(|ms| match ms {
-                MatchStatus::Match {
-                    span,
-                    remainder,
-                    inner,
-                } => Ok((span, remainder, inner.1)),
-                MatchStatus::NoMatch(_) => {
-                    Err(ParseErr::Unspecified("not a valid program".to_string()))
-                }
-            })
-            .map_err(|e| format!("{:?}", e))?;
+        let (span, remainder, command_or_labels) = parcel::right(parcel::join(
+            expect_str("agent "),
+            parcel::join(label(), parcel::zero_or_more(command_or_label())),
+        ))
+        .parse(input)
+        .map_err(ParseErr::Unspecified)
+        .and_then(|ms| match ms {
+            MatchStatus::Match {
+                span,
+                remainder,
+                inner,
+            } => Ok((span, remainder, inner.1)),
+            MatchStatus::NoMatch(_) => {
+                Err(ParseErr::Unspecified("not a valid program".to_string()))
+            }
+        })
+        .map_err(|e| format!("{:?}", e))?;
 
         let labels = command_or_labels
             .iter()
@@ -118,89 +120,87 @@ fn agent<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Agent> {
 }
 
 fn command_or_label<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], CommandOrLabel> {
-    parcel::one_or_more(non_newline_whitespace()).and_then(|_| {
+    parcel::right(parcel::join(
+        parcel::one_or_more(non_newline_whitespace()),
         command()
             .map(CommandOrLabel::Command)
-            .or(|| label().map(CommandOrLabel::Label))
-    })
+            .or(|| label().map(CommandOrLabel::Label)),
+    ))
 }
 
 fn label<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], String> {
     parcel::left(parcel::join(
         identifier(),
-        expect_character(':').and_then(|_| newline_terminated_whitespace()),
+        parcel::join(expect_character(':'), newline_terminated_whitespace()),
     ))
 }
 
 fn command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
     parcel::left(parcel::join(
-        face_command()
+        set_command()
+            .map(|v| {
+                println!("ParsedCommand is {:#?}", &v);
+                v
+            })
+            .or(face_command)
             .or(move_command)
             .or(turn_command)
             .or(goto_command)
-            .or(set_command)
             .or(jump_true_command),
         newline_terminated_whitespace(),
     ))
 }
 
 fn set_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
-    expect_str("set ")
-        .and_then(|_| {
-            parcel::join(
-                identifier(),
-                parcel::right(parcel::join(
-                    whitespace_wrapped(expect_character('=')),
-                    expression(),
-                )),
-            )
-        })
-        .map(|(id, expr)| ParsedCommand::SetVariable(id, expr))
+    parcel::right(parcel::join(
+        expect_str("set "),
+        parcel::join(
+            identifier(),
+            parcel::right(parcel::join(
+                whitespace_wrapped(expect_character('=')),
+                expression(),
+            )),
+        ),
+    ))
+    .map(|(id, expr)| ParsedCommand::SetVariable(id, expr))
 }
 
 fn jump_true_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
-    expect_str("jump to ")
-        .and_then(|_| {
-            parcel::join(
-                identifier(),
-                whitespace_wrapped(expect_str("if")).and_then(|_| {
-                    parcel::join(
+    parcel::right(parcel::join(
+        expect_str("jump to "),
+        parcel::join(
+            identifier(),
+            parcel::right(parcel::join(
+                whitespace_wrapped(expect_str("if")),
+                parcel::join(
+                    expression(),
+                    parcel::right(parcel::join(
+                        whitespace_wrapped(expect_str("is")),
                         expression(),
-                        parcel::right(parcel::join(
-                            whitespace_wrapped(expect_str("is")),
-                            expression(),
-                        )),
-                    )
-                }),
-            )
-        })
-        .map(|(id, (lhs, rhs))| {
-            ParsedCommand::JumpTrue(id, ast::Expression::Equals(Box::new(lhs), Box::new(rhs)))
-        })
+                    )),
+                ),
+            )),
+        ),
+    ))
+    .map(|(id, (lhs, rhs))| {
+        ParsedCommand::JumpTrue(id, ast::Expression::Equals(Box::new(lhs), Box::new(rhs)))
+    })
 }
 
 fn move_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
-    expect_str("move ")
-        .and_then(|_| dec_u32())
-        .map(ParsedCommand::Move)
+    parcel::right(parcel::join(expect_str("move "), dec_u32())).map(ParsedCommand::Move)
 }
 
 fn face_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
-    expect_str("face ")
-        .and_then(|_| direction())
-        .map(ParsedCommand::Face)
+    parcel::right(parcel::join(expect_str("face "), direction())).map(ParsedCommand::Face)
 }
 
 fn turn_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
-    expect_str("turn ")
-        .and_then(|_| dec_i32())
-        .map(ParsedCommand::Turn)
+    parcel::right(parcel::join(expect_str("turn "), dec_i32())).map(ParsedCommand::Turn)
 }
 
 fn goto_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
-    expect_str("goto ")
-        .and_then(|_| identifier())
-        .map(ParsedCommand::Goto)
+    parcel::right(parcel::join(expect_str("goto "), identifier())).map(ParsedCommand::Goto)
 }
 
 fn direction<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Direction> {
@@ -243,7 +243,10 @@ fn identifier<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], String> {
 }
 
 fn newline_terminated_whitespace<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], char> {
-    parcel::zero_or_more(space().or(tab)).and_then(|_| newline())
+    parcel::right(parcel::join(
+        parcel::zero_or_more(space().or(tab)),
+        newline(),
+    ))
 }
 
 fn dec_u32<'a>() -> impl Parser<'a, &'a [(usize, char)], u32> {
@@ -333,12 +336,12 @@ fn addition<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Expressio
     parcel::join(
         multiplication(),
         parcel::zero_or_more(parcel::join(
-            whitespace_wrapped(
+            non_newline_whitespace_wrapped(
                 expect_character('+')
                     .map(|_| AdditionExprOp::Plus)
                     .or(|| expect_character('-').map(|_| AdditionExprOp::Minus)),
             ),
-            whitespace_wrapped(multiplication()),
+            non_newline_whitespace_wrapped(multiplication()),
         ))
         .map(unzip),
     )
@@ -365,12 +368,12 @@ fn multiplication<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Exp
     parcel::join(
         literal(),
         parcel::zero_or_more(parcel::join(
-            whitespace_wrapped(
+            non_newline_whitespace_wrapped(
                 expect_character('*')
                     .map(|_| MultiplicationExprOp::Star)
                     .or(|| expect_character('/').map(|_| MultiplicationExprOp::Slash)),
             ),
-            whitespace_wrapped(literal()),
+            non_newline_whitespace_wrapped(literal()),
         ))
         .map(unzip),
     )
@@ -407,6 +410,20 @@ where
     parcel::right(parcel::join(
         parcel::zero_or_more(whitespace()),
         parcel::left(parcel::join(parser, parcel::zero_or_more(whitespace()))),
+    ))
+}
+
+fn non_newline_whitespace_wrapped<'a, P, B>(parser: P) -> impl Parser<'a, &'a [(usize, char)], B>
+where
+    B: 'a,
+    P: Parser<'a, &'a [(usize, char)], B> + 'a,
+{
+    parcel::right(parcel::join(
+        parcel::zero_or_more(non_newline_whitespace()),
+        parcel::left(parcel::join(
+            parser,
+            parcel::zero_or_more(non_newline_whitespace()),
+        )),
     ))
 }
 
@@ -452,6 +469,39 @@ agent blue_agent:
         assert_eq!(Ok(2), res.map(|program| program.agents().len()),);
     }
 
+    #[test]
+    fn should_parse_set_cmds_with_var_references() {
+        use crate::{
+            ast::{Agent, Command, Primitive},
+            parser::ParseErr,
+            Expression,
+        };
+        let set_inst = "agent red_agent:
+    set a = 4
+    set a = a + 5
+";
+        let res = crate::parser::parse(set_inst);
+        let expected_cmds = vec![
+            Command::SetVariable("a".to_string(), Expression::Literal(Primitive::Integer(4))),
+            Command::SetVariable(
+                "a".to_string(),
+                Expression::Add(
+                    Box::new(Expression::GetVariable("a".to_string())),
+                    Box::new(Expression::Literal(Primitive::Integer(5))),
+                ),
+            ),
+        ];
+
+        assert_eq!(
+            Ok(Agent::new(expected_cmds)),
+            res.and_then(|program| program
+                .agents()
+                .get(0)
+                .cloned()
+                .ok_or_else(|| { ParseErr::Unspecified("no agents parsed".to_string()) })),
+        );
+    }
+
     use parcel::Parser;
 
     #[test]
@@ -478,7 +528,7 @@ agent blue_agent:
 
     #[test]
     fn should_parse_multi_op_expression() {
-        let input: Vec<(usize, char)> = "5 * 5 + 5".chars().enumerate().collect();
+        let input: Vec<(usize, char)> = "a * 5 + 5".chars().enumerate().collect();
         let res = crate::parser::expression().parse(&input);
 
         assert_eq!(
@@ -487,9 +537,7 @@ agent blue_agent:
                 remainder: &input[9..],
                 inner: crate::ast::Expression::Add(
                     Box::new(crate::ast::Expression::Mul(
-                        Box::new(crate::ast::Expression::Literal(
-                            crate::ast::Primitive::Integer(5)
-                        )),
+                        Box::new(crate::ast::Expression::GetVariable("a".to_string())),
                         Box::new(crate::ast::Expression::Literal(
                             crate::ast::Primitive::Integer(5)
                         )),
@@ -513,6 +561,18 @@ agent blue_agent:
                 span: 0..0,
                 remainder: &input[1..],
                 inner: crate::ast::Expression::Literal(crate::ast::Primitive::Integer(5)),
+            }),
+            res
+        );
+
+        let input: Vec<(usize, char)> = "a".chars().enumerate().collect();
+        let res = crate::parser::expression().parse(&input);
+
+        assert_eq!(
+            Ok(parcel::MatchStatus::Match {
+                span: 0..0,
+                remainder: &input[1..],
+                inner: crate::ast::Expression::GetVariable("a".to_string()),
             }),
             res
         );
