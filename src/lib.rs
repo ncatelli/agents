@@ -520,11 +520,16 @@ impl<BBI: BoardBoundaryInteraction> EvaluateMut<BBI, ast::Expression> for AgentS
 
         match expr {
             Expression::Literal(lit) => Ok(lit),
-            Expression::GetVariable(key) => self
-                .vars
-                .get(&key)
-                .copied()
-                .ok_or_else(|| format!("key [{}] undefined", &key)),
+            Expression::GetVariable(key) => match key.as_str() {
+                "x" => Ok(Primitive::Integer(self.coords.x() as i32)),
+                "y" => Ok(Primitive::Integer(self.coords.y() as i32)),
+                "color" => Ok(Primitive::Integer(self.color as i32)),
+                k => self
+                    .vars
+                    .get(k)
+                    .copied()
+                    .ok_or_else(|| format!("key [{}] undefined", &key)),
+            },
             Expression::Equals(lhs, rhs) => {
                 let l = EvaluateMut::<BBI, _>::evaluate_mut(self, *lhs)?;
                 let r = EvaluateMut::<BBI, _>::evaluate_mut(self, *rhs)?;
