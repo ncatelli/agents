@@ -1,6 +1,6 @@
 import * as wasm from 'agents';
 
-const CELL_SIZE = 12;
+const CELL_SIZE = 5;
 const GRID_COLOR = "#CCCCCC";
 
 // Construct the universe, and get its width and height.
@@ -52,7 +52,7 @@ function drawGrid() {
   }
 }
 
-let fps = 2;
+let fps = 10;
 
 function loop() {
   drawGrid();
@@ -70,21 +70,19 @@ loop();
 
 document.getElementById('editor').innerHTML = `agent red_agent:
     set color = 16711680
-    set x = 20
-    set y = 20
+    set x = 40
+    set y = 40
+    face NW
     loop:
-        face NW
         move 1
-        turn -4
         goto loop
 agent blue_agent:
     set color = 255
-    set x = 20
-    set y = 20
+    set x = 40
+    set y = 40
+    face NE
     loop:
-        face NE
         move 2
-        turn -30
         goto loop
 `
 

@@ -569,7 +569,7 @@ pub fn tick_agent(agent_state: &mut AgentState) -> Vec<Coordinates> {
         .cloned()
         .unwrap();
 
-    EvaluateMut::<WrapOnOverflow, _>::evaluate_mut(agent_state, command).unwrap()
+    EvaluateMut::<ReflectOnOverflow, _>::evaluate_mut(agent_state, command).unwrap()
 }
 
 pub fn tick_world(board: &mut Board) {
@@ -586,8 +586,8 @@ pub fn tick_world(board: &mut Board) {
     }
 }
 
-pub const BOARD_WIDTH: u32 = 50;
-pub const BOARD_HEIGHT: u32 = 50;
+pub const BOARD_WIDTH: u32 = 100;
+pub const BOARD_HEIGHT: u32 = 100;
 
 #[wasm_bindgen]
 pub fn board_width() -> u32 {
