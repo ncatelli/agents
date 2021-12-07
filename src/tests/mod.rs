@@ -57,13 +57,13 @@ fn should_generate_expected_new_coordinates_for_move_when_wrapped() {
 
     generate_move_command_assertion!(
         WrapOnOverflow, 5 => 0, 5,
-        WrapOnOverflow, 51 => 0, 1,
+        WrapOnOverflow, 101 => 0, 1,
     );
 
     generate_move_command_assertion!(
-        WrapOnOverflow, 49 to Direction::N => 0, 1,
-        WrapOnOverflow, 49 to Direction::W => 1, 0,
-        WrapOnOverflow, 51 to Direction::E => 1, 0,
+        WrapOnOverflow, 49 to Direction::N => 0, 51,
+        WrapOnOverflow, 49 to Direction::W => 51, 0,
+        WrapOnOverflow, 101 to Direction::E => 1, 0,
     );
 }
 
@@ -74,10 +74,10 @@ fn should_generate_expected_new_coordinates_for_move_when_reflected() {
 
     generate_move_command_assertion!(
         ReflectOnOverflow, 6 to Direction::N => 0, 6 with Direction::S,
-        ReflectOnOverflow, 50 to Direction::S => 0, 48 with Direction::N,
+        ReflectOnOverflow, 100 to Direction::S => 0, 98 with Direction::N,
         ReflectOnOverflow, 6 to Direction::W => 6, 0 with Direction::E,
-        ReflectOnOverflow, 50 to Direction::E => 48, 0 with Direction::W,
+        ReflectOnOverflow, 100 to Direction::E => 98, 0 with Direction::W,
         ReflectOnOverflow, 6 to Direction::NW => 6, 6 with Direction::SE,
-        ReflectOnOverflow, 50 to Direction::SE => 48, 48 with Direction::NW,
+        ReflectOnOverflow, 100 to Direction::SE => 98, 98 with Direction::NW,
     );
 }
