@@ -4,8 +4,8 @@ const CELL_SIZE = 12;
 const GRID_COLOR = "#CCCCCC";
 
 // Construct the universe, and get its width and height.
-const width = 50;
-const height = 50;
+const width = wasm.board_width();
+const height = wasm.board_height();
 
 const RED_MASK = 0xff << 16;
 const GREEN_MASK = 0xff << 8;
@@ -42,9 +42,9 @@ function drawGrid() {
   ctx.stroke();
 
   let colors = wasm.tick();
-  for (let y = 0; y < 50; y++) {
-    for (let x = 0; x < 50; x++) {
-      let i = y * 50 + x;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let i = y * height + x;
       let color = colors[i];
       ctx.fillStyle = 'rgb(' + (color & RED_MASK).toString() + ',' + (color & GREEN_MASK).toString() + ',' + (color & BLUE_MASK).toString() + ')';
       ctx.fillRect((CELL_SIZE + 1) * x + 2, (CELL_SIZE + 1) * y + 2, CELL_SIZE - 1, CELL_SIZE - 1);
@@ -69,18 +69,14 @@ document.getElementById('runcode').addEventListener('click', () => {
 loop();
 
 document.getElementById('editor').innerHTML = `agent red_agent:
-    set color = 255
+    set color = 16711680
     set x = 20
     set y = 20
-    set a = 0
     loop:
         face NW
         move 1
         turn -4
         goto loop
-        set a = 5
-        jump to exit if a is 1
-    exit:
 agent blue_agent:
     set color = 255
     set x = 20
@@ -90,8 +86,6 @@ agent blue_agent:
         move 2
         turn -30
         goto loop
-        set b = 5
-    exit:
 `
 
 let editor = ace.edit('editor');

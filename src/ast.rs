@@ -54,35 +54,6 @@ pub enum Command {
     JumpTrue(u32, Expression),
 }
 
-/// Sets a variable identified by the string to the primitive evaluated to by
-/// the associated Expression on an associated agent..
-#[derive(Debug, Clone, PartialEq)]
-pub struct SetVariableCmd(pub String, pub Expression);
-
-/// Defines the direction an agent should face.
-#[derive(Debug, Clone, PartialEq)]
-pub struct FaceCmd(pub Direction);
-
-/// Turns by a number of rotations where a positive number represents a
-/// clockwise rotation and a negavite represents a counter-clockwise
-/// rotation.
-#[derive(Debug, Clone, PartialEq)]
-pub struct TurnCmd(pub i32);
-
-/// Move specifies the steps that an agent will move in the direction it is
-/// facing.
-#[derive(Debug, Clone, PartialEq)]
-pub struct MoveCmd(pub u32);
-
-/// Goto jumps to the enclosed offset in an agents command list.
-#[derive(Debug, Clone, PartialEq)]
-pub struct GotoCmd(pub u32);
-
-/// Like Goto, JumpTrue jumps to the enclosed offset if the passed conditional
-/// expression evaluates to true.
-#[derive(Debug, Clone, PartialEq)]
-pub struct JumpTrueCmd(pub u32, pub Expression);
-
 /// Expresion covers the simple expression operations that can evaluated in
 /// some agent commands.
 #[derive(Debug, Clone, PartialEq)]
@@ -115,6 +86,45 @@ pub enum Direction {
     SW,
     W,
     NW,
+}
+
+impl Direction {
+    pub fn invert_x(self) -> Self {
+        match self {
+            Direction::NE => Direction::NW,
+            Direction::E => Direction::W,
+            Direction::SE => Direction::SW,
+            Direction::SW => Direction::SE,
+            Direction::W => Direction::E,
+            Direction::NW => Direction::NE,
+            other => other,
+        }
+    }
+
+    pub fn invert_y(self) -> Self {
+        match self {
+            Direction::NE => Direction::SE,
+            Direction::SE => Direction::NE,
+            Direction::SW => Direction::NW,
+            Direction::NW => Direction::SW,
+            Direction::N => Direction::S,
+            Direction::S => Direction::N,
+            other => other,
+        }
+    }
+
+    pub fn invert_xy(self) -> Self {
+        match self {
+            Direction::NE => Direction::SW,
+            Direction::SE => Direction::NW,
+            Direction::SW => Direction::NE,
+            Direction::NW => Direction::SE,
+            Direction::N => Direction::S,
+            Direction::S => Direction::N,
+            Direction::E => Direction::W,
+            Direction::W => Direction::E,
+        }
+    }
 }
 
 impl From<i32> for Direction {
