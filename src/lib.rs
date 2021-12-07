@@ -128,6 +128,13 @@ impl AgentState {
         self.coords = coordinates;
         self
     }
+
+    /// Adds a variable mapping, consuming and returning the agent-state
+    /// modified in place.
+    pub fn with_variable(mut self, key: &str, value: ast::Primitive) -> Self {
+        self.vars.insert(key.to_string(), value);
+        self
+    }
 }
 
 impl Default for AgentState {
