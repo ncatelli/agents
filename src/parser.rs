@@ -159,7 +159,7 @@ fn comment<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ()> {
     parcel::right(parcel::join(
         expect_character('#'),
         parcel::left(parcel::join(
-            parcel::one_or_more(any_non_whitespace_character().or(non_newline_whitespace))
+            parcel::zero_or_more(any_non_whitespace_character().or(non_newline_whitespace))
                 .map(|_| ()),
             newline_terminated_whitespace(),
         )),
@@ -532,7 +532,9 @@ agent blue_agent:
             Expression,
         };
         let set_inst = "# top-level comment
+# hello
 agent red_agent:
+    #
     # statement-level comment
     set a = 4 # inline comment
 ";
