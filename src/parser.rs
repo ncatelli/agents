@@ -36,7 +36,7 @@ pub fn parse(source: &str) -> Result<ast::Program, ParseErr> {
     let input: Vec<(usize, char)> = source.chars().enumerate().collect();
 
     let res = parcel::one_or_more(parcel::right(parcel::join(
-        parcel::zero_or_more(whitespace()),
+        parcel::zero_or_more(newline_terminated_whitespace()),
         comment()
             .map(|_| AgentOrComment::Comment)
             .or(|| agent().map(AgentOrComment::Agent)),
@@ -494,15 +494,16 @@ agent blue_agent:
             ast::{Agent, Command, Primitive},
             Expression,
         };
-        let set_inst = "   
 
-    agent red_agent:
+        let good_agent_input = "   
+
+agent red_agent:
     set a = 4
 
 agent blue_agent:
     set a = 4
 ";
-        let res = crate::parser::parse(set_inst);
+        let res = crate::parser::parse(good_agent_input);
         let expected_cmds = vec![Command::SetVariable(
             "a".to_string(),
             Expression::Literal(Primitive::Integer(4)),
@@ -515,6 +516,18 @@ agent blue_agent:
             ]),
             res.map(|program| program.agents().to_vec()),
         );
+
+        let bad_agent_input = "   
+    agent red_agent:
+    set a = 4
+
+agent blue_agent:
+    set a = 4
+";
+
+        let res = crate::parser::parse(bad_agent_input);
+
+        assert!(res.is_err());
     }
 
     #[test]
