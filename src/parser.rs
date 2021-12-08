@@ -161,7 +161,9 @@ fn command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> 
             .or(turn_command)
             .or(goto_command)
             .or(jump_true_command),
-        newline_terminated_whitespace(),
+        parcel::join(parcel::one_or_more(non_newline_whitespace()), comment())
+            .map(|_| '\n')
+            .or(newline_terminated_whitespace),
     ))
 }
 
@@ -514,7 +516,7 @@ agent blue_agent:
         };
         let set_inst = "agent red_agent:
     # test
-    set a = 4
+    set a = 4 # test
 ";
         let res = crate::parser::parse(set_inst);
         let expected_cmds = vec![Command::SetVariable(
