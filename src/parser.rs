@@ -4,8 +4,9 @@ use parcel::prelude::v1::*;
 use crate::ast;
 
 #[derive(Debug)]
-enum CommandOrLabel {
+enum Statements {
     Label(String),
+    Comment,
     Command(ParsedCommand),
 }
 
@@ -51,7 +52,7 @@ fn agent<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Agent> {
     move |input: &'a [(usize, char)]| {
         let (span, remainder, command_or_labels) = parcel::right(parcel::join(
             expect_str("agent "),
-            parcel::join(label(), parcel::zero_or_more(command_or_label())),
+            parcel::join(label(), parcel::zero_or_more(statement())),
         ))
         .parse(input)
         .map_err(ParseErr::Unspecified)
@@ -72,11 +73,12 @@ fn agent<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Agent> {
             .fold(
                 (HashMap::new(), 0usize),
                 |(mut labels, idx), col| match col {
-                    CommandOrLabel::Label(id) => {
+                    Statements::Label(id) => {
                         labels.insert(id.clone(), idx);
                         (labels, idx)
                     }
-                    CommandOrLabel::Command(_) => (labels, idx + 1),
+                    Statements::Command(_) => (labels, idx + 1),
+                    Statements::Comment => (labels, idx),
                 },
             )
             // Index isn't needeed after calculating the labels.
@@ -85,8 +87,8 @@ fn agent<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Agent> {
         command_or_labels
             .into_iter()
             .map(|col| match col {
-                CommandOrLabel::Label(_) => None,
-                CommandOrLabel::Command(pc) => Some(pc),
+                Statements::Label(_) | Statements::Comment => None,
+                Statements::Command(pc) => Some(pc),
             })
             .flatten()
             .map(|pc| match pc {
@@ -119,12 +121,13 @@ fn agent<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Agent> {
     }
 }
 
-fn command_or_label<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], CommandOrLabel> {
+fn statement<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], Statements> {
     parcel::right(parcel::join(
         parcel::one_or_more(non_newline_whitespace()),
         command()
-            .map(CommandOrLabel::Command)
-            .or(|| label().map(CommandOrLabel::Label)),
+            .map(Statements::Command)
+            .or(|| comment().map(|_| Statements::Comment))
+            .or(|| label().map(Statements::Label)),
     ))
 }
 
@@ -132,6 +135,17 @@ fn label<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], String> {
     parcel::left(parcel::join(
         identifier(),
         parcel::join(expect_character(':'), newline_terminated_whitespace()),
+    ))
+}
+
+fn comment<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ()> {
+    parcel::right(parcel::join(
+        expect_character('#'),
+        parcel::left(parcel::join(
+            parcel::one_or_more(any_non_whitespace_character().or(non_newline_whitespace))
+                .map(|_| ()),
+            newline_terminated_whitespace(),
+        )),
     ))
 }
 
@@ -480,6 +494,33 @@ agent blue_agent:
                 ),
             ),
         ];
+
+        assert_eq!(
+            Ok(Agent::new(expected_cmds)),
+            res.and_then(|program| program
+                .agents()
+                .get(0)
+                .cloned()
+                .ok_or_else(|| { ParseErr::Unspecified("no agents parsed".to_string()) })),
+        );
+    }
+
+    #[test]
+    fn should_parse_comments() {
+        use crate::{
+            ast::{Agent, Command, Primitive},
+            parser::ParseErr,
+            Expression,
+        };
+        let set_inst = "agent red_agent:
+    # test
+    set a = 4
+";
+        let res = crate::parser::parse(set_inst);
+        let expected_cmds = vec![Command::SetVariable(
+            "a".to_string(),
+            Expression::Literal(Primitive::Integer(4)),
+        )];
 
         assert_eq!(
             Ok(Agent::new(expected_cmds)),
