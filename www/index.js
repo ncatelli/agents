@@ -69,6 +69,9 @@ document.getElementById('runcode').addEventListener('click', () => {
 loop();
 
 document.getElementById('editor').innerHTML = `# A program is composed of one or more independent agents.
+# Agents move around the board in the direction they are oriented in on cycle
+# of ticks, leaving behind a colored wake in their path.
+#
 # Agents are defined by by using the "agent" keyword followed by a name and
 # semicolon.
 agent red_agent:
