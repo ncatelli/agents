@@ -35,11 +35,12 @@ enum AgentOrComment {
 pub fn parse(source: &str) -> Result<ast::Program, ParseErr> {
     let input: Vec<(usize, char)> = source.chars().enumerate().collect();
 
-    let res = parcel::one_or_more(
+    let res = parcel::one_or_more(parcel::right(parcel::join(
+        parcel::zero_or_more(whitespace()),
         comment()
             .map(|_| AgentOrComment::Comment)
             .or(|| agent().map(AgentOrComment::Agent)),
-    )
+    )))
     .map(|aoc| {
         aoc.into_iter().fold(Vec::new(), |mut acc, aoc| {
             if let AgentOrComment::Agent(agent) = aoc {
@@ -169,10 +170,6 @@ fn comment<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ()> {
 fn command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
     parcel::left(parcel::join(
         set_command()
-            .map(|v| {
-                println!("ParsedCommand is {:#?}", &v);
-                v
-            })
             .or(face_command)
             .or(move_command)
             .or(turn_command)
@@ -489,6 +486,34 @@ agent blue_agent:
         let res = crate::parser::parse(TEST_PROGRAM);
 
         assert_eq!(Ok(2), res.map(|program| program.agents().len()),);
+    }
+
+    #[test]
+    fn should_parse_arbitrary_whitespace_before_agents() {
+        use crate::{
+            ast::{Agent, Command, Primitive},
+            parser::ParseErr,
+            Expression,
+        };
+        let set_inst = "   
+
+    agent red_agent:
+    set a = 4
+";
+        let res = crate::parser::parse(set_inst);
+        let expected_cmds = vec![Command::SetVariable(
+            "a".to_string(),
+            Expression::Literal(Primitive::Integer(4)),
+        )];
+
+        assert_eq!(
+            Ok(Agent::new(expected_cmds)),
+            res.and_then(|program| program
+                .agents()
+                .get(0)
+                .cloned()
+                .ok_or_else(|| { ParseErr::Unspecified("no agents parsed".to_string()) })),
+        );
     }
 
     #[test]
