@@ -26,24 +26,41 @@ pub enum ParseErr {
     Unspecified(String),
 }
 
+enum AgentOrComment {
+    Comment,
+    Agent(ast::Agent),
+}
+
 #[allow(dead_code)]
 pub fn parse(source: &str) -> Result<ast::Program, ParseErr> {
     let input: Vec<(usize, char)> = source.chars().enumerate().collect();
 
-    let res = parcel::one_or_more(agent())
-        .map(ast::Program::new)
-        .parse(&input)
-        .map_err(ParseErr::Unspecified)
-        .and_then(|ms| match ms {
-            MatchStatus::Match {
-                span: _,
-                remainder: _,
-                inner,
-            } => Ok(inner),
-            MatchStatus::NoMatch(_) => {
-                Err(ParseErr::Unspecified("not a valid program".to_string()))
+    let res = parcel::one_or_more(
+        comment()
+            .map(|_| AgentOrComment::Comment)
+            .or(|| agent().map(AgentOrComment::Agent)),
+    )
+    .map(|aoc| {
+        aoc.into_iter().fold(Vec::new(), |mut acc, aoc| {
+            if let AgentOrComment::Agent(agent) = aoc {
+                acc.push(agent);
+                acc
+            } else {
+                acc
             }
-        });
+        })
+    })
+    .map(ast::Program::new)
+    .parse(&input)
+    .map_err(ParseErr::Unspecified)
+    .and_then(|ms| match ms {
+        MatchStatus::Match {
+            span: _,
+            remainder: _,
+            inner,
+        } => Ok(inner),
+        MatchStatus::NoMatch(_) => Err(ParseErr::Unspecified("not a valid program".to_string())),
+    });
     res
 }
 
@@ -514,9 +531,10 @@ agent blue_agent:
             parser::ParseErr,
             Expression,
         };
-        let set_inst = "agent red_agent:
-    # test
-    set a = 4 # test
+        let set_inst = "# top-level comment
+agent red_agent:
+    # statement-level comment
+    set a = 4 # inline comment
 ";
         let res = crate::parser::parse(set_inst);
         let expected_cmds = vec![Command::SetVariable(
