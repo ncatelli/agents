@@ -77,9 +77,11 @@ document.getElementById('editor').innerHTML = `# A program is composed of one or
 agent red_agent:
     # Everything in a agent block is a statement.
     #
-    # Statements can be labels, variables or commands.
+    # Statements can be labels or commands.
     # 
-    # Some variables are special and impact the board.
+    # One such command is "set", used for defining variables.
+    # Some variables are special and impact an agents placement or effect on
+    # the board.
     # These include color, x and y for cell color or coordinates.
     set color = 16711680
     set x = 40
