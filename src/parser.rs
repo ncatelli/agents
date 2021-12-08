@@ -492,12 +492,14 @@ agent blue_agent:
     fn should_parse_arbitrary_whitespace_before_agents() {
         use crate::{
             ast::{Agent, Command, Primitive},
-            parser::ParseErr,
             Expression,
         };
         let set_inst = "   
 
     agent red_agent:
+    set a = 4
+
+agent blue_agent:
     set a = 4
 ";
         let res = crate::parser::parse(set_inst);
@@ -507,12 +509,11 @@ agent blue_agent:
         )];
 
         assert_eq!(
-            Ok(Agent::new(expected_cmds)),
-            res.and_then(|program| program
-                .agents()
-                .get(0)
-                .cloned()
-                .ok_or_else(|| { ParseErr::Unspecified("no agents parsed".to_string()) })),
+            Ok(vec![
+                Agent::new(expected_cmds.clone()),
+                Agent::new(expected_cmds)
+            ]),
+            res.map(|program| program.agents().to_vec()),
         );
     }
 
