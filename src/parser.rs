@@ -35,11 +35,12 @@ enum AgentOrComment {
 pub fn parse(source: &str) -> Result<ast::Program, ParseErr> {
     let input: Vec<(usize, char)> = source.chars().enumerate().collect();
 
-    let res = parcel::one_or_more(
+    let res = parcel::one_or_more(parcel::right(parcel::join(
+        parcel::zero_or_more(newline_terminated_whitespace()),
         comment()
             .map(|_| AgentOrComment::Comment)
             .or(|| agent().map(AgentOrComment::Agent)),
-    )
+    )))
     .map(|aoc| {
         aoc.into_iter().fold(Vec::new(), |mut acc, aoc| {
             if let AgentOrComment::Agent(agent) = aoc {
@@ -169,10 +170,6 @@ fn comment<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ()> {
 fn command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
     parcel::left(parcel::join(
         set_command()
-            .map(|v| {
-                println!("ParsedCommand is {:#?}", &v);
-                v
-            })
             .or(face_command)
             .or(move_command)
             .or(turn_command)
@@ -489,6 +486,48 @@ agent blue_agent:
         let res = crate::parser::parse(TEST_PROGRAM);
 
         assert_eq!(Ok(2), res.map(|program| program.agents().len()),);
+    }
+
+    #[test]
+    fn should_parse_arbitrary_whitespace_before_agents() {
+        use crate::{
+            ast::{Agent, Command, Primitive},
+            Expression,
+        };
+
+        let good_agent_input = "   
+
+agent red_agent:
+    set a = 4
+
+agent blue_agent:
+    set a = 4
+";
+        let res = crate::parser::parse(good_agent_input);
+        let expected_cmds = vec![Command::SetVariable(
+            "a".to_string(),
+            Expression::Literal(Primitive::Integer(4)),
+        )];
+
+        assert_eq!(
+            Ok(vec![
+                Agent::new(expected_cmds.clone()),
+                Agent::new(expected_cmds)
+            ]),
+            res.map(|program| program.agents().to_vec()),
+        );
+
+        let bad_agent_input = "   
+    agent red_agent:
+    set a = 4
+
+agent blue_agent:
+    set a = 4
+";
+
+        let res = crate::parser::parse(bad_agent_input);
+
+        assert!(res.is_err());
     }
 
     #[test]
