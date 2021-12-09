@@ -64,6 +64,8 @@ Our frontend was built around ace and a thin JS wrapper that calls out to the ru
 - Extending the available operators
   - modulus
   - exponents
+- Board resets
+- Better compiler errors in the UI
 
 ## Example Program
 ### Spiral
