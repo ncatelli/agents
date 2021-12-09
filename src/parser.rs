@@ -14,7 +14,7 @@ enum Statements {
 enum ParsedCommand {
     SetVariable(String, ast::Expression),
     Face(ast::Direction),
-    Turn(i32),
+    Turn(ast::Expression),
     Move(ast::Expression),
     Goto(String),
     JumpTrue(String, ast::Expression),
@@ -226,7 +226,7 @@ fn face_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedComm
 }
 
 fn turn_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
-    parcel::right(parcel::join(expect_str("turn "), i32_literal())).map(ParsedCommand::Turn)
+    parcel::right(parcel::join(expect_str("turn "), expression())).map(ParsedCommand::Turn)
 }
 
 fn goto_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {

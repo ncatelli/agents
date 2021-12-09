@@ -225,11 +225,17 @@ impl EvaluateMut<WrapOnOverflow, ast::Command> for AgentState {
             ast::Command::Face(dir) => {
                 EvaluateMut::<WrapOnOverflow, _>::evaluate_mut(self, FaceCmd(dir))
             }
-
             ast::Command::Turn(rotations) => {
-                EvaluateMut::<WrapOnOverflow, _>::evaluate_mut(self, TurnCmd(rotations))
+                let evaluated_rotations =
+                    EvaluateMut::<WrapOnOverflow, _>::evaluate_mut(self, rotations);
+                match evaluated_rotations {
+                    Ok(ast::Primitive::Integer(rotations)) => {
+                        EvaluateMut::<WrapOnOverflow, _>::evaluate_mut(self, TurnCmd(rotations))
+                    }
+                    Ok(p) => Err(format!("invalid type for move command {:?}", &p)),
+                    Err(e) => Err(e),
+                }
             }
-
             ast::Command::Move(steps) => {
                 let evaluated_steps = EvaluateMut::<WrapOnOverflow, _>::evaluate_mut(self, steps);
                 match evaluated_steps {
@@ -263,7 +269,15 @@ impl EvaluateMut<ReflectOnOverflow, ast::Command> for AgentState {
             }
 
             ast::Command::Turn(rotations) => {
-                EvaluateMut::<ReflectOnOverflow, _>::evaluate_mut(self, TurnCmd(rotations))
+                let evaluated_rotations =
+                    EvaluateMut::<ReflectOnOverflow, _>::evaluate_mut(self, rotations);
+                match evaluated_rotations {
+                    Ok(ast::Primitive::Integer(rotations)) => {
+                        EvaluateMut::<ReflectOnOverflow, _>::evaluate_mut(self, TurnCmd(rotations))
+                    }
+                    Ok(p) => Err(format!("invalid type for move command {:?}", &p)),
+                    Err(e) => Err(e),
+                }
             }
             ast::Command::Move(steps) => {
                 let evaluated_steps =
