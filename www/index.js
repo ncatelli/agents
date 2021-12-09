@@ -88,6 +88,7 @@ agent red_agent:
     set y = 40
     # Other variables can be general purpose.
     set acc = 1
+    set radius = 2
     # Commands control either agent behavior or control flow.
     #
     # face changes orientation of an agent and takes a cardinal direction, like
@@ -102,7 +103,7 @@ agent red_agent:
         # Agent scripts support branching through the "jump to" command.
         # These commands look like:
         # "jump to <label> if <expression> is <expresion>".
-        jump to spin if acc is 4
+        jump to spin if acc is radius
         # Variables also support basic arithmetic expressions.
         set acc = acc + 1
         # The goto command allows for the basic jumping to a label without a
@@ -114,6 +115,7 @@ agent red_agent:
         # negative being counter-clockwise.
         turn 1
         set acc = 1
+        set radius = radius + 1
         goto loop
 agent blue_agent:
     set color = 0xFF

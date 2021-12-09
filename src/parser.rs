@@ -14,8 +14,8 @@ enum Statements {
 enum ParsedCommand {
     SetVariable(String, ast::Expression),
     Face(ast::Direction),
-    Turn(i32),
-    Move(u32),
+    Turn(ast::Expression),
+    Move(ast::Expression),
     Goto(String),
     JumpTrue(String, ast::Expression),
 }
@@ -218,7 +218,7 @@ fn jump_true_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], Parse
 }
 
 fn move_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
-    parcel::right(parcel::join(expect_str("move "), dec_u32())).map(ParsedCommand::Move)
+    parcel::right(parcel::join(expect_str("move "), expression())).map(ParsedCommand::Move)
 }
 
 fn face_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
@@ -226,7 +226,7 @@ fn face_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedComm
 }
 
 fn turn_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
-    parcel::right(parcel::join(expect_str("turn "), dec_i32())).map(ParsedCommand::Turn)
+    parcel::right(parcel::join(expect_str("turn "), expression())).map(ParsedCommand::Turn)
 }
 
 fn goto_command<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ParsedCommand> {
@@ -282,45 +282,7 @@ fn newline_terminated_whitespace<'a>() -> impl parcel::Parser<'a, &'a [(usize, c
 const HEX_RADIX: u32 = 16;
 const DEC_RADIX: u32 = 10;
 
-fn dec_u32<'a>() -> impl Parser<'a, &'a [(usize, char)], u32> {
-    move |input: &'a [(usize, char)]| {
-        let preparsed_input = input;
-        let res = parcel::right(parcel::join(
-            expect_str("0x"),
-            parcel::one_or_more(digit(16)),
-        ))
-        .map(|chars| (chars, HEX_RADIX))
-        .or(|| parcel::one_or_more(digit(10)).map(|chars| (chars, DEC_RADIX)))
-        .map(|(digits, radix)| {
-            let vd: String = digits.into_iter().collect();
-            u32::from_str_radix(&vd, radix)
-        })
-        .parse(input);
-
-        match res {
-            Ok(MatchStatus::Match {
-                span,
-                remainder,
-                inner: Ok(u),
-            }) => Ok(MatchStatus::Match {
-                span,
-                remainder,
-                inner: u,
-            }),
-
-            Ok(MatchStatus::Match {
-                span: _,
-                remainder: _,
-                inner: Err(_),
-            }) => Ok(MatchStatus::NoMatch(preparsed_input)),
-
-            Ok(MatchStatus::NoMatch(remainder)) => Ok(MatchStatus::NoMatch(remainder)),
-            Err(e) => Err(e),
-        }
-    }
-}
-
-fn dec_i32<'a>() -> impl Parser<'a, &'a [(usize, char)], i32> {
+fn i32_literal<'a>() -> impl Parser<'a, &'a [(usize, char)], i32> {
     move |input: &'a [(usize, char)]| {
         let preparsed_input = input;
         let res = parcel::join(
@@ -435,7 +397,7 @@ fn multiplication<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Exp
 fn literal<'a>() -> impl parcel::Parser<'a, &'a [(usize, char)], ast::Expression> {
     boolean()
         .map(|b| ast::Expression::Literal(ast::Primitive::Boolean(b)))
-        .or(|| dec_i32().map(|num| ast::Expression::Literal(ast::Primitive::Integer(num))))
+        .or(|| i32_literal().map(|num| ast::Expression::Literal(ast::Primitive::Integer(num))))
         .or(|| identifier().map(ast::Expression::GetVariable))
 }
 

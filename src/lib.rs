@@ -225,12 +225,27 @@ impl EvaluateMut<WrapOnOverflow, ast::Command> for AgentState {
             ast::Command::Face(dir) => {
                 EvaluateMut::<WrapOnOverflow, _>::evaluate_mut(self, FaceCmd(dir))
             }
-
             ast::Command::Turn(rotations) => {
-                EvaluateMut::<WrapOnOverflow, _>::evaluate_mut(self, TurnCmd(rotations))
+                let evaluated_rotations =
+                    EvaluateMut::<WrapOnOverflow, _>::evaluate_mut(self, rotations);
+                match evaluated_rotations {
+                    Ok(ast::Primitive::Integer(rotations)) => {
+                        EvaluateMut::<WrapOnOverflow, _>::evaluate_mut(self, TurnCmd(rotations))
+                    }
+                    Ok(p) => Err(format!("invalid type for move command {:?}", &p)),
+                    Err(e) => Err(e),
+                }
             }
-
-            ast::Command::Move(steps) => self.evaluate_mut(MoveCmd(WrapOnOverflow, steps)),
+            ast::Command::Move(steps) => {
+                let evaluated_steps = EvaluateMut::<WrapOnOverflow, _>::evaluate_mut(self, steps);
+                match evaluated_steps {
+                    Ok(ast::Primitive::Integer(steps)) if steps >= 0 => {
+                        self.evaluate_mut(MoveCmd(WrapOnOverflow, steps as u32))
+                    }
+                    Ok(p) => Err(format!("invalid type for move command {:?}", &p)),
+                    Err(e) => Err(e),
+                }
+            }
             ast::Command::Goto(command) => {
                 EvaluateMut::<WrapOnOverflow, _>::evaluate_mut(self, GotoCmd(command))
             }
@@ -254,10 +269,27 @@ impl EvaluateMut<ReflectOnOverflow, ast::Command> for AgentState {
             }
 
             ast::Command::Turn(rotations) => {
-                EvaluateMut::<ReflectOnOverflow, _>::evaluate_mut(self, TurnCmd(rotations))
+                let evaluated_rotations =
+                    EvaluateMut::<ReflectOnOverflow, _>::evaluate_mut(self, rotations);
+                match evaluated_rotations {
+                    Ok(ast::Primitive::Integer(rotations)) => {
+                        EvaluateMut::<ReflectOnOverflow, _>::evaluate_mut(self, TurnCmd(rotations))
+                    }
+                    Ok(p) => Err(format!("invalid type for move command {:?}", &p)),
+                    Err(e) => Err(e),
+                }
             }
-
-            ast::Command::Move(steps) => self.evaluate_mut(MoveCmd(ReflectOnOverflow, steps)),
+            ast::Command::Move(steps) => {
+                let evaluated_steps =
+                    EvaluateMut::<ReflectOnOverflow, _>::evaluate_mut(self, steps);
+                match evaluated_steps {
+                    Ok(ast::Primitive::Integer(steps)) if steps >= 0 => {
+                        self.evaluate_mut(MoveCmd(ReflectOnOverflow, steps as u32))
+                    }
+                    Ok(p) => Err(format!("invalid type for move command {:?}", &p)),
+                    Err(e) => Err(e),
+                }
+            }
             ast::Command::Goto(command) => {
                 EvaluateMut::<ReflectOnOverflow, _>::evaluate_mut(self, GotoCmd(command))
             }
@@ -509,10 +541,10 @@ impl<BBI: BoardBoundaryInteraction> EvaluateMut<BBI, ast::Expression> for AgentS
 
             match (l, r) {
                 (Primitive::Integer(l), Primitive::Integer(r)) => match op {
-                    BinaryOp::Add => Ok(Primitive::Integer(l + r)),
-                    BinaryOp::Sub => Ok(Primitive::Integer(l - r)),
-                    BinaryOp::Mul => Ok(Primitive::Integer(l * r)),
-                    BinaryOp::Div => Ok(Primitive::Integer(l / r)),
+                    BinaryOp::Add => Ok(Primitive::Integer(l.wrapping_add(r))),
+                    BinaryOp::Sub => Ok(Primitive::Integer(l.wrapping_sub(r))),
+                    BinaryOp::Mul => Ok(Primitive::Integer(l.wrapping_mul(r))),
+                    BinaryOp::Div => Ok(Primitive::Integer(l.wrapping_div(r))),
                 },
                 _ => Err(format!("type mismatch ({:?}, {:?})", &l, &r)),
             }
