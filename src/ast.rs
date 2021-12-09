@@ -46,7 +46,7 @@ pub enum Command {
     Turn(i32),
     /// Move specifies the steps that an agent will move in the direction it is
     /// facing.
-    Move(u32),
+    Move(Expression),
     /// Goto jumps to the enclosed offset in an agents command list.
     Goto(u32),
     /// Like Goto, JumpTrue jumps to the enclosed offset if the passed conditional
