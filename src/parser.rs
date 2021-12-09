@@ -279,15 +279,23 @@ fn newline_terminated_whitespace<'a>() -> impl parcel::Parser<'a, &'a [(usize, c
     ))
 }
 
+const HEX_RADIX: u32 = 16;
+const DEC_RADIX: u32 = 10;
+
 fn dec_u32<'a>() -> impl Parser<'a, &'a [(usize, char)], u32> {
     move |input: &'a [(usize, char)]| {
         let preparsed_input = input;
-        let res = parcel::one_or_more(digit(10))
-            .map(|digits| {
-                let vd: String = digits.into_iter().collect();
-                vd.parse::<u32>()
-            })
-            .parse(input);
+        let res = parcel::right(parcel::join(
+            expect_str("0x"),
+            parcel::one_or_more(digit(16)),
+        ))
+        .map(|chars| (chars, HEX_RADIX))
+        .or(|| parcel::one_or_more(digit(10)).map(|chars| (chars, DEC_RADIX)))
+        .map(|(digits, radix)| {
+            let vd: String = digits.into_iter().collect();
+            u32::from_str_radix(&vd, radix)
+        })
+        .parse(input);
 
         match res {
             Ok(MatchStatus::Match {
@@ -317,14 +325,19 @@ fn dec_i32<'a>() -> impl Parser<'a, &'a [(usize, char)], i32> {
         let preparsed_input = input;
         let res = parcel::join(
             expect_character('-').optional(),
-            parcel::one_or_more(digit(10)),
+            parcel::right(parcel::join(
+                expect_str("0x"),
+                parcel::one_or_more(digit(16)),
+            ))
+            .map(|chars| (chars, HEX_RADIX))
+            .or(|| parcel::one_or_more(digit(10)).map(|chars| (chars, DEC_RADIX))),
         )
-        .map(|(optional_sign, digits)| {
+        .map(|(optional_sign, (digits, radix))| {
             let sign = optional_sign
                 .map(|c| c.to_string())
                 .unwrap_or_else(|| "".to_string());
             let vd: String = sign.chars().chain(digits.into_iter()).collect();
-            vd.parse::<i32>()
+            i32::from_str_radix(&vd, radix)
         })
         .parse(input);
 
@@ -453,7 +466,7 @@ fn unzip<A, B>(pair: Vec<(A, B)>) -> (Vec<A>, Vec<B>) {
 #[cfg(test)]
 mod tests {
     const TEST_PROGRAM: &str = "agent red_agent:
-    set color = 255
+    set color = 0xff
     set x = 0
     set y = 0
     set direction = 0
@@ -652,6 +665,19 @@ agent red_agent:
                 span: 0..0,
                 remainder: &input[1..],
                 inner: crate::ast::Expression::Literal(crate::ast::Primitive::Integer(5)),
+            }),
+            res
+        );
+
+        // hex literal
+        let input: Vec<(usize, char)> = "0xF".chars().enumerate().collect();
+        let res = crate::parser::expression().parse(&input);
+
+        assert_eq!(
+            Ok(parcel::MatchStatus::Match {
+                span: 0..0,
+                remainder: &input[3..],
+                inner: crate::ast::Expression::Literal(crate::ast::Primitive::Integer(15)),
             }),
             res
         );
