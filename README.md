@@ -18,7 +18,7 @@ agent red_agent:
     # Some variables are special and impact an agents placement or effect on
     # the board.
     # These include color, x and y for cell color or coordinates.
-    set color = 16711680
+    set color = 0xFF0000
     set x = 40
     set y = 40
     # Other variables can be general purpose.
@@ -51,7 +51,7 @@ agent red_agent:
         set acc = 1
         goto loop
 agent blue_agent:
-    set color = 255
+    set color = 0xFF
     set x = 40
     set y = 40
     face NE
